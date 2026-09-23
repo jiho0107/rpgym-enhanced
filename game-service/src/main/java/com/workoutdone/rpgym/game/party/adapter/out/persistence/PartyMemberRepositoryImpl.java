@@ -57,4 +57,14 @@ public class PartyMemberRepositoryImpl implements PartyMemberRepository {
         Long sum = jpa.sumWeeklyXp(partyId, weekStart, weekEnd);
         return sum == null ? 0L : sum;
     }
+
+    @Override
+    public List<UUID> findUserIdsCompletedAt(UUID partyId, Instant endedAt) {
+        return jpa.findUserIdsByPartyIdAndStatusAndLeftAt(partyId, MemberStatus.LEFT, endedAt);
+    }
+
+    @Override
+    public long countCompletedByUserId(UUID userId) {
+        return jpa.countCompletedByUserId(userId);
+    }
 }

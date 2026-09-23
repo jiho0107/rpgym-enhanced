@@ -24,8 +24,13 @@ public class XpGrantedEventListener {
     /**
      * AFTER_COMMIT 이라 XP 지급 트랜잭션이 커밋된 뒤에만 실행된다.
      *
-     * <p>REQUIRES_NEW 인 이유 — 이 시점에는 바깥 트랜잭션 리소스가 아직 바인딩돼 있어서,
-     * 기본 전파(REQUIRED)로 두면 이미 커밋된 트랜잭션에 합류해 upsertLevel() 이 조용히 유실된다.
+     * <p>여기에 @Transactional 을 걸지 않는다. 트랜잭션 경계는 RankingCommandService.onXpChanged 의
+     * REQUIRES_NEW 가 잡는다 (그쪽에 걸어야 하는 이유는 그 메서드 주석 참고).
+     *
+     * <p>걸면 안 되는 이유 — 여기에 REQUIRES_NEW 를 걸고 서비스가 REQUIRED 로 합류하면,
+     * 서비스에서 예외가 나는 순간 물리 트랜잭션이 rollback-only 로 찍힌다. 아래 catch 가 그 예외를
+     * 삼켜도 이 메서드가 끝난 뒤 프록시가 커밋을 시도하다 UnexpectedRollbackException 을 던지고,
+     * 그건 catch 밖이라 못 잡는다. 실제로 Redis 가 죽었을 때 그 예외가 파티 테스트에서 터졌다.
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void on(XpGranted event) {

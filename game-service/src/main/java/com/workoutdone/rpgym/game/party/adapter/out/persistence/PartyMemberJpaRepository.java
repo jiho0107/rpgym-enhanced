@@ -78,4 +78,23 @@ public interface PartyMemberJpaRepository extends JpaRepository<PartyMember, UUI
 
 
 
+
+    @Query("select m.userId from PartyMember m where m.partyId = :partyId and m.status = :status and m.leftAt = :leftAt order by m.joinedAt asc")
+    List<UUID> findUserIdsByPartyIdAndStatusAndLeftAt(@Param("partyId") UUID partyId,
+                                                      @Param("status") MemberStatus status,
+                                                      @Param("leftAt") Instant leftAt);
+
+    /*
+     * 완주한 파티 수. 파티 업적의 원본 값.
+     * left_at = ends_at 조건이 핵심 -- 같은 ENDED 파티라도 중간에 나간 사람은 left_at 이 앞서서 안 잡힌다.
+     */
+    @Query(value = """
+            select count(*)
+              from game_service.party_members pm
+              join game_service.parties p on p.id = pm.party_id
+             where pm.user_id = :userId
+               and p.status = 'ENDED'
+               and pm.left_at = p.ends_at
+            """, nativeQuery = true)
+    long countCompletedByUserId(@Param("userId") UUID userId);
 }
