@@ -52,6 +52,18 @@ public class RefreshTokenStore {
             Long.class
     );
 
+    // 로그아웃 시 refreshToken 하나를 폐기하기 위한 스크립트
+    // refresh-token:{token} 키만 지우면 역인덱스(Set)에 폐기된 토큰 값이 TTL 동안 남으므로, 역인덱스에서도 해당 토큰 하나만 함께 뺀다
+    // 역인덱스 키 자체는 지우지 않는다: 다른 기기에서 발급된 토큰이 남아 있을 수 있기 때문 (Set이 비면 Redis가 키를 자동 삭제함)
+    private static final RedisScript<Long> DELETE_SCRIPT = new DefaultRedisScript<>(
+            """
+            redis.call('DEL', KEYS[1])
+            redis.call('SREM', KEYS[2], ARGV[1])
+            return 1
+            """,
+            Long.class
+    );
+
     // 회원 탈퇴 시 해당 userId의 refreshToken을 모두 폐기하기 위한 스크립트
     // 역인덱스(Set)에 모인 토큰 값들을 순회하며 각각의 refresh-token:{token} 키를 지우고, 역인덱스 자체도 지운다
     private static final RedisScript<Long> DELETE_ALL_SCRIPT = new DefaultRedisScript<>(
@@ -85,8 +97,13 @@ public class RefreshTokenStore {
     }
 
     // 로그아웃 시 해당 refreshToken 하나만 폐기하기 위해 사용
-    public void delete(String refreshToken) {
-        redisTemplate.delete(KEY_PREFIX + refreshToken);
+    // refresh-token:{token} 삭제와 역인덱스에서의 제거를 Lua 스크립트로 원자적으로 실행한다 (둘 중 하나만 반영되는 상태를 만들지 않음)
+    public void delete(String refreshToken, UUID userId) {
+        redisTemplate.execute(
+                DELETE_SCRIPT,
+                List.of(KEY_PREFIX + refreshToken, OWNER_KEY_PREFIX + userId),
+                refreshToken
+        );
     }
 
     // 토큰 회전(Refresh Token Rotation): 기존 refreshToken 존재 확인, 폐기, 새 refreshToken 저장을

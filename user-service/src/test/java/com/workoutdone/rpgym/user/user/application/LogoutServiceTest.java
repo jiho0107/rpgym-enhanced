@@ -15,6 +15,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -39,14 +40,14 @@ class LogoutServiceTest {
     }
 
     @Test
-    @DisplayName("본인 소유의 refreshToken이면 Redis에서 삭제한다")
+    @DisplayName("본인 소유의 refreshToken이면 요청자 userId와 함께 Redis에서 삭제한다(역인덱스 정리에 userId 필요)")
     void logout_success() {
         UUID userId = UUID.randomUUID();
         given(refreshTokenStore.findUserId(REFRESH_TOKEN)).willReturn(Optional.of(userId));
 
         logoutService.logout(command(userId));
 
-        verify(refreshTokenStore).delete(REFRESH_TOKEN);
+        verify(refreshTokenStore).delete(REFRESH_TOKEN, userId);
     }
 
     @Test
@@ -57,7 +58,7 @@ class LogoutServiceTest {
 
         logoutService.logout(command(userId));
 
-        verify(refreshTokenStore, never()).delete(anyString());
+        verify(refreshTokenStore, never()).delete(anyString(), any(UUID.class));
     }
 
     @Test
@@ -71,6 +72,6 @@ class LogoutServiceTest {
                 .isInstanceOf(BaseException.class)
                 .satisfies(ex -> assertThat(((BaseException) ex).getErrorCode()).isEqualTo(CommonErrorCode.FORBIDDEN));
 
-        verify(refreshTokenStore, never()).delete(anyString());
+        verify(refreshTokenStore, never()).delete(anyString(), any(UUID.class));
     }
 }

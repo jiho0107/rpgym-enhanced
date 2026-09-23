@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -27,6 +28,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
@@ -35,6 +37,8 @@ class OutboxRelayTest {
 
     private static final String TOPIC = "health.events";
     private static final String DLQ_TOPIC = "health.events.dlq";
+    private static final String DAILY_GOAL_TOPIC = "health.daily-goal.events";
+    private static final String DAILY_GOAL_DLQ_TOPIC = "health.daily-goal.events.dlq";
     private static final int MAX_RETRY = 3;
 
     @Mock
@@ -54,9 +58,9 @@ class OutboxRelayTest {
 
     @BeforeEach
     void setUp() {
-        // 순서: pollSize, maxRetry, sendTimeout, topic, dlqSuffix
+        // 순서: pollSize, maxRetry, sendTimeout, topic, dailyGoalTopic, dlqSuffix
         OutboxPublishProperties properties = new OutboxPublishProperties(
-                100, MAX_RETRY, Duration.ofSeconds(5), TOPIC, ".dlq");
+                100, MAX_RETRY, Duration.ofSeconds(5), TOPIC, DAILY_GOAL_TOPIC, ".dlq");
 
         meterRegistry = new SimpleMeterRegistry();
 
@@ -104,6 +108,66 @@ class OutboxRelayTest {
     }
 
     @Test
+    @DisplayName("DAILY_GOAL_COMPLETED는 전용 토픽(health.daily-goal.events)으로 발행한다")
+    void routesDailyGoalCompletedToDedicatedTopic() {
+        // given
+        EventOutbox outbox = pendingOutbox(HealthEventType.DAILY_GOAL_COMPLETED);
+        given(eventOutboxRepository.findPendingForUpdate(anyInt())).willReturn(List.of(outbox));
+
+        // when
+        outboxRelay.relayOnce();
+
+        // then
+        assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.PUBLISHED);
+        then(eventPublisherPort).should().publish(
+                eq(DAILY_GOAL_TOPIC),
+                eq(outbox.getPartitionKey()),
+                eq(outbox.getPayload()),
+                eq(HealthEventType.DAILY_GOAL_COMPLETED));
+        then(eventPublisherPort).should(never()).publish(
+                eq(TOPIC), anyString(), anyString(), any(HealthEventType.class));
+    }
+
+    @Test
+    @DisplayName("QUEST_SUGGESTED는 HEALTH_ACTIVITY_SYNCED와 같은 토픽(health.events)에 남는다")
+    void keepsQuestSuggestedOnSharedTopic() {
+        // given
+        EventOutbox outbox = pendingOutbox(HealthEventType.QUEST_SUGGESTED);
+        given(eventOutboxRepository.findPendingForUpdate(anyInt())).willReturn(List.of(outbox));
+
+        // when
+        outboxRelay.relayOnce();
+
+        // then — 순서 보장이 필요한 두 이벤트는 반드시 같은 토픽이어야 한다
+        then(eventPublisherPort).should().publish(
+                eq(TOPIC),
+                eq(outbox.getPartitionKey()),
+                eq(outbox.getPayload()),
+                eq(HealthEventType.QUEST_SUGGESTED));
+    }
+
+    @Test
+    @DisplayName("한 라운드에 섞여 있어도 각 이벤트는 자기 토픽으로 적재 순서대로 발행된다")
+    void routesMixedEventsInOrder() {
+        // given — 같은 sync에서 Synced → DailyGoalCompleted 순으로 적재된 상황
+        EventOutbox synced = pendingOutbox(HealthEventType.HEALTH_ACTIVITY_SYNCED);
+        EventOutbox dailyGoal = pendingOutbox(HealthEventType.DAILY_GOAL_COMPLETED);
+        given(eventOutboxRepository.findPendingForUpdate(anyInt())).willReturn(List.of(synced, dailyGoal));
+
+        // when
+        int publishedCount = outboxRelay.relayOnce();
+
+        // then
+        assertThat(publishedCount).isEqualTo(2);
+
+        InOrder inOrder = inOrder(eventPublisherPort);
+        inOrder.verify(eventPublisherPort).publish(
+                eq(TOPIC), anyString(), anyString(), eq(HealthEventType.HEALTH_ACTIVITY_SYNCED));
+        inOrder.verify(eventPublisherPort).publish(
+                eq(DAILY_GOAL_TOPIC), anyString(), anyString(), eq(HealthEventType.DAILY_GOAL_COMPLETED));
+    }
+
+    @Test
     @DisplayName("발행에 실패하고 재시도 여유가 있으면 PENDING을 유지하고 retryCount만 늘린다")
     void keepsPendingWhenRetryBudgetRemains() {
         // given
@@ -146,6 +210,32 @@ class OutboxRelayTest {
                 eq(HealthEventType.HEALTH_ACTIVITY_SYNCED),
                 eq(MAX_RETRY),
                 anyString());
+    }
+
+    @Test
+    @DisplayName("DAILY_GOAL_COMPLETED가 최대 재시도에 도달하면 전용 DLQ로 보낸다")
+    void movesDailyGoalCompletedToDedicatedDlq() {
+        // given
+        EventOutbox outbox = pendingOutbox(HealthEventType.DAILY_GOAL_COMPLETED);
+        failBefore(outbox, MAX_RETRY - 1);
+        given(eventOutboxRepository.findPendingForUpdate(anyInt())).willReturn(List.of(outbox));
+        givenPublishFails();
+
+        // when
+        outboxRelay.relayOnce();
+
+        // then
+        assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.FAILED);
+        then(eventPublisherPort).should().publishToDlq(
+                eq(DAILY_GOAL_DLQ_TOPIC),
+                eq(outbox.getPartitionKey()),
+                eq(outbox.getPayload()),
+                eq(HealthEventType.DAILY_GOAL_COMPLETED),
+                eq(MAX_RETRY),
+                anyString());
+        then(eventPublisherPort).should(never()).publishToDlq(
+                eq(DLQ_TOPIC), anyString(), anyString(),
+                any(HealthEventType.class), anyInt(), anyString());
     }
 
     @Test
@@ -201,19 +291,23 @@ class OutboxRelayTest {
     }
 
     private EventOutbox pendingOutbox() {
+        return pendingOutbox(HealthEventType.HEALTH_ACTIVITY_SYNCED);
+    }
+
+    private EventOutbox pendingOutbox(HealthEventType eventType) {
         UUID userId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
 
         return EventOutbox.pending(
                 UUID.randomUUID(),
                 eventId,
-                HealthEventType.HEALTH_ACTIVITY_SYNCED,
+                eventType,
                 UUID.randomUUID(),
-                "HEALTH_ACTIVITY_SYNCED:" + userId + ":2026-08-28T10:30:00+09:00",
+                eventType.name() + ":" + userId + ":2026-08-28T10:30:00+09:00",
                 userId.toString(),
                 """
-                {"eventId":"%s","eventType":"HEALTH_ACTIVITY_SYNCED"}
-                """.formatted(eventId)
+                {"eventId":"%s","eventType":"%s"}
+                """.formatted(eventId, eventType.name())
         );
     }
 }

@@ -16,6 +16,8 @@ import java.util.List;
  *
  * PENDING 행을 SKIP LOCKED로 집어 순서대로 발행하고 상태를 전이한다.
  * 상태 변경은 더티 체킹으로 반영되므로 별도 save 호출이 없다.
+ *
+ * 발행 토픽은 이벤트 타입별로 정해진다. (OutboxPublishProperties#topicFor)
  */
 @Slf4j
 @Component
@@ -69,7 +71,7 @@ public class OutboxRelay {
              * Game Service의 중복 처리 방지가 무력화된다. (이전 PR 리뷰)
              */
             eventPublisherPort.publish(
-                    properties.topic(),
+                    properties.topicFor(outbox.getEventType()),
                     outbox.getPartitionKey(),
                     outbox.getPayload(),
                     outbox.getEventType()
@@ -116,9 +118,12 @@ public class OutboxRelay {
     }
 
     private void moveToDlq(EventOutbox outbox, int attempts, Exception cause) {
+        // 원래 발행 토픽에 대응하는 DLQ로 보낸다 (health.events.dlq / health.daily-goal.events.dlq)
+        String dlqTopic = properties.dlqTopicFor(outbox.getEventType());
+
         try {
             eventPublisherPort.publishToDlq(
-                    properties.dlqTopic(),
+                    dlqTopic,
                     outbox.getPartitionKey(),
                     outbox.getPayload(),
                     outbox.getEventType(),
@@ -129,7 +134,7 @@ public class OutboxRelay {
             outbox.markFailed();
             outboxMetrics.recordDlq(outbox.getEventType());
             log.error("최대 재시도를 초과해 DLQ로 이동한다. eventId={} dlqTopic={} 시도={}",
-                    outbox.getEventId(), properties.dlqTopic(), attempts, cause);
+                    outbox.getEventId(), dlqTopic, attempts, cause);
 
         } catch (Exception dlqError) {
             /*

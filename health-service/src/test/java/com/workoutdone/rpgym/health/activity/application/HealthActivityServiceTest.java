@@ -50,7 +50,7 @@ class HealthActivityServiceTest {
 
     @Test
     @DisplayName("신규 스냅샷이면 저장하고 Outbox에 이벤트를 기록한다")
-    void sync_새로운_스냅샷() {
+    void sync_newSnapshot_savesAndAppendsOutboxEvent() {
         given(healthActivityRepository.findByUserIdAndMeasuredAt(userId, measuredAt))
                 .willReturn(Optional.empty());
         given(healthActivityRepository.findLatestSnapshot(eq(userId), any(LocalDate.class)))
@@ -68,7 +68,7 @@ class HealthActivityServiceTest {
 
     @Test
     @DisplayName("measuredAt에서 activityDate를 KST 기준으로 파생시킨다")
-    void sync_활동일자는_KST_기준() {
+    void sync_derivesActivityDateInKst() {
         given(healthActivityRepository.findByUserIdAndMeasuredAt(userId, measuredAt))
                 .willReturn(Optional.empty());
         given(healthActivityRepository.findLatestSnapshot(eq(userId), any(LocalDate.class)))
@@ -82,7 +82,7 @@ class HealthActivityServiceTest {
 
     @Test
     @DisplayName("값까지 동일한 재전송이면 갱신도 이벤트 기록도 하지 않는다")
-    void sync_완전_중복이면_아무것도_하지_않는다() {
+    void sync_identicalResend_doesNothing() {
         given(healthActivityRepository.findByUserIdAndMeasuredAt(userId, measuredAt))
                 .willReturn(Optional.of(activity(3100)));
 
@@ -96,7 +96,7 @@ class HealthActivityServiceTest {
 
     @Test
     @DisplayName("같은 시점에 다른 값이 오면 스냅샷만 갱신하고 이벤트는 다시 기록하지 않는다")
-    void sync_재동기화면_스냅샷만_갱신() {
+    void sync_resyncWithDifferentValues_updatesSnapshotOnly() {
         HealthActivity existing = activity(3100);
         given(healthActivityRepository.findByUserIdAndMeasuredAt(userId, measuredAt))
                 .willReturn(Optional.of(existing));
@@ -113,7 +113,7 @@ class HealthActivityServiceTest {
 
     @Test
     @DisplayName("오늘 이력이 없으면 0값 View를 반환한다")
-    void getToday_이력이_없으면_0값() {
+    void getToday_noHistory_returnsZeroView() {
         given(healthActivityRepository.findLatestSnapshot(eq(userId), any(LocalDate.class)))
                 .willReturn(Optional.empty());
 

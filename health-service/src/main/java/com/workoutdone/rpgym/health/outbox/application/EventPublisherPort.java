@@ -13,8 +13,8 @@ public interface EventPublisherPort {
 
     /**
      * @param partitionKey Kafka 메시지 key (= userId). 같은 사용자 이벤트의 순서를 보장한다.
-     * @param eventType    Kafka 헤더로 실린다. 단일 토픽이라 Game Service가
-     *                     payload 역직렬화 없이 타입으로 필터링할 수 있게 한다.
+     * @param eventType    Kafka 헤더로 실린다. health.events에는 두 종류가 함께 실리므로
+     *                     컨슈머가 payload 역직렬화 없이 타입으로 필터링할 수 있게 한다.
      */
     void publish(String topic, String partitionKey, String payload, HealthEventType eventType);
 

@@ -137,7 +137,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"measuredAt\": \"{{measuredAt1}}\",\n  \"steps\": 1000,\n  \"activeMinutes\": 55,\n  \"activeCalories\": 280,\n  \"source\": \"SYNTHETIC\"\n}"
+          "raw": "{\n  \"measuredAt\": \"{{measuredAt1}}\",\n  \"steps\": 1000,\n  \"activeMinutes\": 55,\n  \"activeCalories\": 280,\n  \"source\": \"HEALTH_CONNECT\"\n}"
         },
         "url": { "raw": "{{gwUrl}}/api/v1/health-activities/sync", "host": ["{{gwUrl}}"], "path": ["api", "v1", "health-activities", "sync"] }
       },
@@ -171,6 +171,39 @@
               "// 이 요청 하나가 이벤트 두 개를 만든다:",
               "//   HEALTH_ACTIVITY_SYNCED  (누적값)",
               "//   QUEST_SUGGESTED         (AI 제목 + target 1500)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04-1 외부 요청 SYNTHETIC 출처 거부 (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"measuredAt\": \"{{measuredAt1}}\",\n  \"steps\": 1000,\n  \"activeMinutes\": 55,\n  \"activeCalories\": 280,\n  \"source\": \"SYNTHETIC\"\n}"
+        },
+        "url": { "raw": "{{gwUrl}}/api/v1/health-activities/sync", "host": ["{{gwUrl}}"], "path": ["api", "v1", "health-activities", "sync"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// SYNTHETIC은 서버 내부 수집기 전용이라 외부 요청으로는 받지 않는다 (#124).",
+              "// 거부되므로 저장되지 않고 이후 요청 흐름에 영향을 주지 않는다.",
+              "pm.test('400 -- SYNTHETIC 출처는 외부 요청으로 받지 않는다', () => {",
+              "  pm.response.to.have.status(400);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.code).to.eql('INVALID_INPUT');",
+              "  pm.expect(body.fields[0].field).to.eql('source');",
+              "});"
             ]
           }
         }
@@ -216,7 +249,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"measuredAt\": \"{{measuredAt2}}\",\n  \"steps\": 2600,\n  \"activeMinutes\": 58,\n  \"activeCalories\": 290,\n  \"source\": \"SYNTHETIC\"\n}"
+          "raw": "{\n  \"measuredAt\": \"{{measuredAt2}}\",\n  \"steps\": 2600,\n  \"activeMinutes\": 58,\n  \"activeCalories\": 290,\n  \"source\": \"HEALTH_CONNECT\"\n}"
         },
         "url": { "raw": "{{gwUrl}}/api/v1/health-activities/sync", "host": ["{{gwUrl}}"], "path": ["api", "v1", "health-activities", "sync"] }
       },

@@ -35,4 +35,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // RefreshTokenStore의 Lua 스크립트를 실제 Redis에서 검증하기 위한 Testcontainers
+    testImplementation 'org.testcontainers:junit-jupiter'
 }

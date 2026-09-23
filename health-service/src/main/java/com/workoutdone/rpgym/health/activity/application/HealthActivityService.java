@@ -85,8 +85,9 @@ public class HealthActivityService implements HealthActivitySyncUseCase, HealthA
                 HealthActivitySyncedData.from(saved)
         );
 
-        // HealthActivitySynced를 Outbox에 기록한 뒤에 호출한다.
-        // 그래야 Game Service가 누적값을 먼저 받고 DailyGoalCompleted를 나중에 받는다.
+        // HealthActivitySynced를 Outbox에 기록한 뒤에 호출한다. (적재 순서: Synced → DailyGoalCompleted)
+        // 단, DailyGoalCompleted는 전용 토픽(health.daily-goal.events)으로 나가므로
+        // 컨슈머 입장에서 두 이벤트의 소비 순서는 보장되지 않는다.
         dailyProgressUpdatePort.applySync(SyncedActivity.from(saved));
 
         return new HealthActivitySyncResult(HealthActivityView.of(saved), true);

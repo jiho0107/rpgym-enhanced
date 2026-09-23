@@ -29,7 +29,7 @@ public class LogoutService {
             throw new BaseException(CommonErrorCode.FORBIDDEN);
         }
 
-        refreshTokenStore.delete(command.getRefreshToken());
+        refreshTokenStore.delete(command.getRefreshToken(), command.getUserId());
 
         ////TO-DO: accessToken은 무상태(stateless) JWT라 여기서 폐기해도 만료 전까지는 계속 유효하다.
         ////       즉시 무효화가 필요해지면 accessToken을 Redis 블랙리스트로 관리하는 기능을 추가한다.
