@@ -28,6 +28,7 @@ public class RankingCommandService implements RankingService{
     //
     // 경계가 리스너가 아니라 여기인 이유 — 리스너에 걸면 이 메서드의 예외가 물리 트랜잭션을
     // rollback-only 로 만들고, 리스너의 catch 가 삼켜도 프록시 커밋에서 UnexpectedRollbackException 이 난다.
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onXpChanged(UUID userId){
         if (userId == null){
