@@ -57,4 +57,14 @@ public class QuestOfferService {
                 .orElseThrow(() -> new BaseException(NotificationErrorCode.QUEST_OFFER_NOT_FOUND));
         offer.markSent(slackDmChannelId, slackMessageTs, Instant.now());
     }
+
+    /**
+     * Slack 버튼 클릭 처리(SlackInteractionController)에서 쓴다.
+     * slack 발송 시점에 quest_offers 테이블에 저장해둔 userId를 그대로 꺼내 쓰므로, 여기서 user-service를 다시 조회할 필요가 없다.
+     */
+    @Transactional(readOnly = true)
+    public QuestOffer getBySuggestionId(UUID suggestionId) {
+        return questOfferRepository.findBySuggestionId(suggestionId)
+                .orElseThrow(() -> new BaseException(NotificationErrorCode.QUEST_OFFER_NOT_FOUND));
+    }
 }

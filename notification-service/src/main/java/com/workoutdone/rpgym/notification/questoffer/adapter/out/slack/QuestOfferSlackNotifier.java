@@ -1,6 +1,7 @@
 package com.workoutdone.rpgym.notification.questoffer.adapter.out.slack;
 
 import com.workoutdone.rpgym.notification.questoffer.adapter.in.kafka.dto.QuestSuggestedData;
+import com.workoutdone.rpgym.notification.questoffer.domain.QuestOfferSlackActions;
 import com.workoutdone.rpgym.notification.slack.SlackApiClient;
 import com.workoutdone.rpgym.notification.slack.SlackMessageResult;
 
@@ -22,8 +23,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class QuestOfferSlackNotifier {
 
-    private static final String ACCEPT_ACTION_ID = "quest_offer_accept";
-    private static final String REJECT_ACTION_ID = "quest_offer_reject";
     private static final String FALLBACK_TEXT = "오늘의 Quest 제안이 도착했어요";
 
     private final SlackApiClient slackApiClient;
@@ -48,8 +47,8 @@ public class QuestOfferSlackNotifier {
         ObjectNode actions = blocks.addObject();
         actions.put("type", "actions");
         ArrayNode elements = actions.putArray("elements");
-        elements.add(buttonNode("수락", ACCEPT_ACTION_ID, suggestionId, "primary"));
-        elements.add(buttonNode("거절", REJECT_ACTION_ID, suggestionId, "danger"));
+        elements.add(buttonNode("수락", QuestOfferSlackActions.ACCEPT, suggestionId, "primary"));
+        elements.add(buttonNode("거절", QuestOfferSlackActions.REJECT, suggestionId, "danger"));
 
         return blocks.toString();
     }

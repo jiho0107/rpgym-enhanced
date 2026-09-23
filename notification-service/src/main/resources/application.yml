@@ -56,6 +56,10 @@ feign:
         # slackId 조회가 이 시간 안에 안 끝나면 실패로 보고 예외를 던진다 (Kafka가 메시지 전체를 재시도한다).
         connect-timeout: 1000
         read-timeout: 2000
+      game-service:
+        # Slack의 3초 응답 예산 안에서 서명 검증·파싱·DB 조회까지 같이 끝나야 해서 더 짧게 잡는다.
+        connect-timeout: 500
+        read-timeout: 3000 #TO-DO: 현재 3초로 임시로 변경하였고 추후 타임아웃 문제 해결하는 과정에서 재정의 필요
 
 eureka:
   instance:
@@ -95,3 +99,4 @@ rpgym:
 
   slack:
     bot-token: ${SLACK_BOT_TOKEN}
+    signing-secret: ${SLACK_SIGNING_SECRET}

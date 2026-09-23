@@ -107,4 +107,25 @@ class QuestOfferServiceTest {
                 .isInstanceOf(BaseException.class)
                 .hasFieldOrPropertyWithValue("errorCode", NotificationErrorCode.QUEST_OFFER_NOT_FOUND);
     }
+
+    @Test
+    @DisplayName("getBySuggestionId — 존재하면 그대로 반환한다")
+    void getBySuggestionIdReturnsOffer() {
+        QuestOffer offer = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID);
+        when(questOfferRepository.findBySuggestionId(SUGGESTION_ID)).thenReturn(Optional.of(offer));
+
+        QuestOffer result = service.getBySuggestionId(SUGGESTION_ID);
+
+        assertThat(result).isSameAs(offer);
+    }
+
+    @Test
+    @DisplayName("getBySuggestionId — 없으면 QUEST_OFFER_NOT_FOUND를 던진다")
+    void getBySuggestionIdThrowsWhenNotFound() {
+        when(questOfferRepository.findBySuggestionId(SUGGESTION_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getBySuggestionId(SUGGESTION_ID))
+                .isInstanceOf(BaseException.class)
+                .hasFieldOrPropertyWithValue("errorCode", NotificationErrorCode.QUEST_OFFER_NOT_FOUND);
+    }
 }
