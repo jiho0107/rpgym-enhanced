@@ -121,6 +121,28 @@ services:
     networks:
       - shared-network
 
+  # Kafka UI
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: rp-gym-kafka-ui
+    restart: unless-stopped
+
+    environment:
+      KAFKA_CLUSTERS_0_NAME: rp-gym
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      SERVER_SERVLET_CONTEXT_PATH: /kafka-ui
+
+    expose:
+      - "8080"
+
+    depends_on:
+      kafka:
+        condition: service_started
+
+    networks:
+      - shared-network
+      - blue-network
+
   # Redis
   redis:
     image: redis:8.8.2
@@ -172,6 +194,10 @@ services:
       # nginx /grafana/ 경로 뒤에서 서빙하기 위한 서브패스 설정
       GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+
+      # Grafana 초기 관리자 계정
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD}"
 
       # Slack Alerting에서 사용할 Webhook URL
       SLACK_WEBHOOK_URL: "${SLACK_WEBHOOK_URL}"
@@ -247,7 +273,7 @@ services:
     environment:
       HEALTHCHECK_IP: 127.0.0.1
       # 인메모리 저장 상한 (기본값 유지) - 부하테스트 중 OOM/메모리 급증 방지
-      MEM_MAX_SPANS: ${ZIPKIN_MEM_MAX_SPANS:-500000}
+      MEM_MAX_SPANS: ${ZIPKIN_MEM_MAX_SPANS}
 
     expose:
       - "9411"
@@ -321,6 +347,7 @@ services:
       EUREKA_SERVER_URL: http://eureka-server-blue:19000/eureka/
       JWT_SECRET: ${JWT_SECRET}
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
     expose:
       - "19001"
@@ -354,6 +381,7 @@ services:
       EUREKA_SERVER_URL: http://eureka-server-green:19000/eureka/
       JWT_SECRET: ${JWT_SECRET}
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
     expose:
       - "19001"
@@ -400,6 +428,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
     expose:
       - "19010"
@@ -452,6 +481,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
     expose:
       - "19010"
@@ -499,6 +529,7 @@ services:
       EUREKA_PREFER_IP_ADDRESS: "false"
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
       GEMINI_API_KEY: ${GEMINI_API_KEY}
 
@@ -546,6 +577,7 @@ services:
       EUREKA_PREFER_IP_ADDRESS: "false"
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
       GEMINI_API_KEY: ${GEMINI_API_KEY}
 
@@ -596,6 +628,7 @@ services:
       EUREKA_PREFER_IP_ADDRESS: "false"
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
     expose:
       - "19012"
@@ -646,6 +679,7 @@ services:
       EUREKA_PREFER_IP_ADDRESS: "false"
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
     expose:
       - "19012"
@@ -693,6 +727,7 @@ services:
       EUREKA_PREFER_IP_ADDRESS: "false"
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
@@ -741,6 +776,7 @@ services:
       EUREKA_PREFER_IP_ADDRESS: "false"
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
@@ -776,6 +812,8 @@ services:
     environment:
       ZIPKIN_UI_USER: ${ZIPKIN_UI_USER}
       ZIPKIN_UI_PASSWORD_HASH: ${ZIPKIN_UI_PASSWORD_HASH}
+      KAFKA_UI_USER: ${KAFKA_UI_USER}
+      KAFKA_UI_PASSWORD_HASH: ${KAFKA_UI_PASSWORD_HASH}
 
     ports:
       - "80:80"
@@ -784,6 +822,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/service-url.inc:/etc/nginx/conf.d/service-url.inc:ro
       - ./nginx/docker-entrypoint.d/40-zipkin-htpasswd.sh:/docker-entrypoint.d/40-zipkin-htpasswd.sh:ro
+      - ./nginx/docker-entrypoint.d/50-kafka-ui-htpasswd.sh:/docker-entrypoint.d/50-kafka-ui-htpasswd.sh:ro
 
     networks:
       - blue-network

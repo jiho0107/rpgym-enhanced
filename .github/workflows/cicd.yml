@@ -274,9 +274,15 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ZIPKIN_MEM_MAX_SPANS: ${{ secrets.ZIPKIN_MEM_MAX_SPANS }}
+          TRACING_SAMPLING_PROBABILITY: ${{ secrets.TRACING_SAMPLING_PROBABILITY }}
           ZIPKIN_UI_USER: ${{ secrets.ZIPKIN_UI_USER }}
           ZIPKIN_UI_PASSWORD_HASH: ${{ secrets.ZIPKIN_UI_PASSWORD_HASH }}
+          KAFKA_UI_USER: ${{ secrets.KAFKA_UI_USER }}
+          KAFKA_UI_PASSWORD_HASH: ${{ secrets.KAFKA_UI_PASSWORD_HASH }}
           GRAFANA_ROOT_URL: ${{ secrets.GRAFANA_ROOT_URL }}
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
@@ -288,9 +294,15 @@ jobs:
             JWT_SECRET
             POSTGRES_PASSWORD
             GEMINI_API_KEY
+            ZIPKIN_MEM_MAX_SPANS
+            TRACING_SAMPLING_PROBABILITY
             ZIPKIN_UI_USER
             ZIPKIN_UI_PASSWORD_HASH
+            KAFKA_UI_USER
+            KAFKA_UI_PASSWORD_HASH
             GRAFANA_ROOT_URL
+            GRAFANA_ADMIN_USER
+            GRAFANA_ADMIN_PASSWORD
             SLACK_WEBHOOK_URL
             SLACK_BOT_TOKEN
             SLACK_SIGNING_SECRET
@@ -384,6 +396,11 @@ jobs:
             -i ~/.ssh/ec2.pem \
             nginx/docker-entrypoint.d/40-zipkin-htpasswd.sh \
             ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/rp-gym/nginx/docker-entrypoint.d/40-zipkin-htpasswd.sh
+          
+          scp \
+            -i ~/.ssh/ec2.pem \
+            nginx/docker-entrypoint.d/50-kafka-ui-htpasswd.sh \
+            ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/rp-gym/nginx/docker-entrypoint.d/50-kafka-ui-htpasswd.sh
 
           scp \
             -i ~/.ssh/ec2.pem \
@@ -418,7 +435,8 @@ jobs:
           ssh \
             -i ~/.ssh/ec2.pem \
             ubuntu@${{ secrets.EC2_HOST }} \
-            "chmod +x /home/ubuntu/rp-gym/nginx/docker-entrypoint.d/40-zipkin-htpasswd.sh"
+            "chmod +x /home/ubuntu/rp-gym/nginx/docker-entrypoint.d/40-zipkin-htpasswd.sh \
+                     /home/ubuntu/rp-gym/nginx/docker-entrypoint.d/50-kafka-ui-htpasswd.sh"
 
       # 배포 대상 환경에 JAR 전달
       - name: Upload Application JARs
