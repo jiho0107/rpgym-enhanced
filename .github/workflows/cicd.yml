@@ -206,9 +206,9 @@ jobs:
       # main 배포용 JAR Artifact
       #
       # main push에서는 위에서 TASKS=build가 설정되므로
-      # 전체 프로젝트 build가 실행됨.
+      # 전체 프로젝트 build가 실행됨
       #
-      # 따라서 아래 5개 서비스의 실행 JAR이 모두 생성됨.
+      # 따라서 아래 서비스의 실행 JAR이 모두 생성됨
       - name: Upload Application JARs
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v4
@@ -277,6 +277,9 @@ jobs:
           ZIPKIN_UI_USER: ${{ secrets.ZIPKIN_UI_USER }}
           ZIPKIN_UI_PASSWORD_HASH: ${{ secrets.ZIPKIN_UI_PASSWORD_HASH }}
           GRAFANA_ROOT_URL: ${{ secrets.GRAFANA_ROOT_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
         run: |
           ENV_FILE="$(mktemp)"
           trap 'rm -f "$ENV_FILE"' EXIT
@@ -288,6 +291,9 @@ jobs:
             ZIPKIN_UI_USER
             ZIPKIN_UI_PASSWORD_HASH
             GRAFANA_ROOT_URL
+            SLACK_WEBHOOK_URL
+            SLACK_BOT_TOKEN
+            SLACK_SIGNING_SECRET
           )
 
           # 필수 Secret 누락 및 작은따옴표 포함 여부 검증
@@ -351,7 +357,6 @@ jobs:
 
       # 배포에 필요한 인프라 설정 파일 전달
       # service-url.inc는 deploy.sh가 현재 Blue/Green 상태를 관리하므로 전송하지 않음
-      # TO DO: Grafana alerting 설정은 별도 모니터링 작업에서 반영
       - name: Upload Deployment Configuration
         run: |
           ssh \
@@ -362,7 +367,8 @@ jobs:
                       /home/ubuntu/rp-gym/monitoring/loki \
                       /home/ubuntu/rp-gym/monitoring/alloy \
                       /home/ubuntu/rp-gym/monitoring/grafana/provisioning/datasources \
-                      /home/ubuntu/rp-gym/monitoring/grafana/provisioning/dashboards"
+                      /home/ubuntu/rp-gym/monitoring/grafana/provisioning/dashboards \
+                      /home/ubuntu/rp-gym/monitoring/grafana/provisioning/alerting"
 
           scp \
             -i ~/.ssh/ec2.pem \
@@ -402,6 +408,11 @@ jobs:
           scp -r \
             -i ~/.ssh/ec2.pem \
             monitoring/grafana/provisioning/dashboards \
+            ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/rp-gym/monitoring/grafana/provisioning/
+          
+          scp -r \
+            -i ~/.ssh/ec2.pem \
+            monitoring/grafana/provisioning/alerting \
             ubuntu@${{ secrets.EC2_HOST }}:/home/ubuntu/rp-gym/monitoring/grafana/provisioning/
 
           ssh \

@@ -26,6 +26,7 @@ import com.workoutdone.rpgym.user.user.application.UpdateMyAccountService;
 import com.workoutdone.rpgym.user.user.application.WithdrawService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -43,6 +44,8 @@ import java.util.UUID;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
+
+    private static final String BEARER_PREFIX = "Bearer ";
 
     private final SignUpService signUpService;
     private final LoginService loginService;
@@ -72,15 +75,26 @@ public class UserController {
 
     // 인증된 사용자(USER/ADMIN) 본인 소유의 refreshToken만 폐기 가능
     // X-User-Role 검증은 RoleAuthorizationInterceptor가 처리
+    // Gateway는 Authorization 헤더를 제거하지 않고 그대로 전달하므로, 여기서 이 요청의 Access Token(Blacklist 등록 대상)을 꺼낸다.
+    // Blacklist는 추가 방어선이라 이 헤더가 없어도 요청 자체를 거부하지 않는다
     @RequireRole({UserRole.USER, UserRole.ADMIN})
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @RequestHeader(HeaderConstants.USER_ID) UUID userId,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody ReqLogoutDto request
     ) {
-        logoutService.logout(request.toCommand(userId));
+        logoutService.logout(request.toCommand(userId, extractBearerToken(authorization)));
 
         return ResponseEntity.noContent().build();
+    }
+
+    private String extractBearerToken(String authorization) {
+        if (authorization == null || !authorization.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+            return null;
+        }
+
+        return authorization.substring(BEARER_PREFIX.length()).trim();
     }
 
     // 게이트웨이 표준 인증(JWT)을 거치지 않는 API

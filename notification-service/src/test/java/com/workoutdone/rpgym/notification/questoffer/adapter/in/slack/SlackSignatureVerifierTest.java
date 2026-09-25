@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SlackSignatureVerifierTest {
 
     private static final String SIGNING_SECRET = "test-signing-secret";
-    private static final String RAW_BODY = "payload=%7B%22test%22%3Atrue%7D";
+    private static final byte[] RAW_BODY = "payload=%7B%22test%22%3Atrue%7D".getBytes(StandardCharsets.UTF_8);
 
     private SlackSignatureVerifier verifier;
 
@@ -46,8 +46,9 @@ class SlackSignatureVerifierTest {
     void tamperedBodyFails() {
         String timestamp = String.valueOf(Instant.now().getEpochSecond());
         String signature = sign(timestamp, RAW_BODY);
+        byte[] tamperedBody = "payload=%7B%22test%22%3Afalse%7D".getBytes(StandardCharsets.UTF_8);
 
-        assertThat(verifier.isValid(signature, timestamp, "payload=%7B%22test%22%3Afalse%7D")).isFalse();
+        assertThat(verifier.isValid(signature, timestamp, tamperedBody)).isFalse();
     }
 
     @Test
@@ -69,11 +70,16 @@ class SlackSignatureVerifierTest {
     }
 
     // Slack과 동일한 v0 서명 공식(HMAC-SHA256)으로 테스트용 정답 서명을 만든다.
-    private String sign(String timestamp, String rawBody) {
+    private String sign(String timestamp, byte[] rawBody) {
         try {
+            byte[] prefix = ("v0:" + timestamp + ":").getBytes(StandardCharsets.UTF_8);
+            byte[] baseString = new byte[prefix.length + rawBody.length];
+            System.arraycopy(prefix, 0, baseString, 0, prefix.length);
+            System.arraycopy(rawBody, 0, baseString, prefix.length, rawBody.length);
+
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(SIGNING_SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] hash = mac.doFinal(("v0:" + timestamp + ":" + rawBody).getBytes(StandardCharsets.UTF_8));
+            byte[] hash = mac.doFinal(baseString);
             return "v0=" + HexFormat.of().formatHex(hash);
         } catch (Exception e) {
             throw new IllegalStateException(e);

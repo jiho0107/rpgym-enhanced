@@ -173,10 +173,16 @@ services:
       GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL}"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
 
+      # Slack Alerting에서 사용할 Webhook URL
+      SLACK_WEBHOOK_URL: "${SLACK_WEBHOOK_URL}"
+
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+
+      # Grafana Alerting 설정
+      - ./monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
 
     expose:
       - "3000"
@@ -271,7 +277,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     networks:
       - blue-network
@@ -296,7 +302,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     networks:
       - green-network
@@ -325,7 +331,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       eureka-server-blue:
@@ -358,7 +364,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       eureka-server-green:
@@ -403,7 +409,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-user:
@@ -455,7 +461,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-user:
@@ -504,7 +510,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-health:
@@ -551,7 +557,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-health:
@@ -599,7 +605,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-game:
@@ -649,7 +655,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-game:
@@ -688,6 +694,9 @@ services:
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
 
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
+
     expose:
       - "19013"
 
@@ -696,7 +705,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-notification:
@@ -733,6 +742,9 @@ services:
 
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
 
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
+
     expose:
       - "19013"
 
@@ -741,7 +753,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 180s
 
     depends_on:
       postgres-notification:

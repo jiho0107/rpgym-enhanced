@@ -12,12 +12,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import feign.FeignException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,8 +32,9 @@ import java.util.UUID;
  * 게이트웨이 SecurityConfig의 permitAll 목록에 이 경로가 있어야 한다 -- Slack은 우리 JWT가 없고,
  * 대신 서명(SlackSignatureVerifier)으로 자신을 증명한다.
  *
- * 서명 검증에는 Spring이 파싱하기 전의 원본 바이트가 필요해서, @RequestBody를 String으로 받아
- * form-urlencoded 파싱을 직접 한다. 이렇게 해야 Content-Type이 뭐든 원본 그대로 들어온다.
+ * 서명 검증에는 Spring/Tomcat의 어떤 컴포넌트도 아직 건드리지 않은 원본 바이트가 필요하다.
+ * @RequestBody로 받으면 form 파라미터 파싱을 거치면서 body가 살짝 달라지는 걸 확인해서(예: '*' 문자 관련 URLEncoder 재인코딩 차이),
+ *  SlackRawBodyFilter가 필터 체인 맨 앞에서 미리 캐싱해둔 원본을 attribute로 꺼내 쓴다.
  */
 @Slf4j
 @RestController
@@ -54,13 +55,17 @@ public class SlackInteractionController {
     public ResponseEntity<Void> handleInteraction(
             @RequestHeader("X-Slack-Signature") String signature,
             @RequestHeader("X-Slack-Request-Timestamp") String timestamp,
-            @RequestBody String rawBody //서명 검증에 원본 바이트가 그대로 필요하기 때문에 @RequestBody를 String으로 받음
+            HttpServletRequest request
     ) {
-        if (!signatureVerifier.isValid(signature, timestamp, rawBody)) {
+        // SlackRawBodyFilter가 필터 체인 맨 앞에서 미리 읽어 캐싱해둔 원본 바이트.
+        byte[] rawBodyBytes = (byte[]) request.getAttribute(SlackRawBodyFilter.RAW_BODY_ATTRIBUTE);
+
+        if (!signatureVerifier.isValid(signature, timestamp, rawBodyBytes)) {
             throw new BaseException(NotificationErrorCode.INVALID_SLACK_SIGNATURE);
         }
 
-        //원본 문자열을 파싱
+        // 서명 검증이 끝난 후에는 원본 바이트를 UTF-8로 디코딩해서 기존 payload 파싱 로직에 그대로 넘김
+        String rawBody = new String(rawBodyBytes, StandardCharsets.UTF_8);
         SlackInteractionPayload payload = parsePayload(rawBody);
         SlackInteractionPayload.Action action = payload.actions().get(0);
         UUID suggestionId = UUID.fromString(action.value());

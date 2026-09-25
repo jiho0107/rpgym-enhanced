@@ -1,9 +1,15 @@
 server:
   port: 19011
+  # 종료 신호를 받으면 기존 요청이 완료될 시간을 주고, 새로운 요청은 받지 않도록 하는 방식
+  shutdown: graceful
 
 spring:
   application:
     name: health-service
+
+  lifecycle:
+    # Graceful Shutdown 단계별 최대 대기 시간
+    timeout-per-shutdown-phase: 30s
 
   config:
     # 서비스 디렉터리의 .env를 프로퍼티 파일로 읽는다.
@@ -180,3 +186,6 @@ management:
       maximum-expected-value:
         rpgym.outbox.lag: 30s
         rpgym.outbox.publish.duration: 10s
+
+springdoc:
+  paths-to-exclude: /api/*/internal/**

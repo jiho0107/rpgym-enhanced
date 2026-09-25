@@ -27,5 +27,8 @@ dependencies {
     // Bearer JWT 검증 및 JwtDecoder
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
+    // Swagger UI
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

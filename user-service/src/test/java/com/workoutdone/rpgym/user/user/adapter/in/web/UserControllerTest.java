@@ -12,6 +12,7 @@ import com.workoutdone.rpgym.user.user.application.GetMyAccountResult;
 import com.workoutdone.rpgym.user.user.application.GetMyAccountService;
 import com.workoutdone.rpgym.user.user.application.LoginResult;
 import com.workoutdone.rpgym.user.user.application.LoginService;
+import com.workoutdone.rpgym.user.user.application.LogoutCommand;
 import com.workoutdone.rpgym.user.user.application.LogoutService;
 import com.workoutdone.rpgym.user.user.application.RefreshTokenResult;
 import com.workoutdone.rpgym.user.user.application.RefreshTokenService;
@@ -428,6 +429,73 @@ class UserControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(logoutService).logout(any());
+    }
+
+    @Test
+    @DisplayName("Authorization 헤더의 Bearer 토큰이 Access Token으로 추출되어 로그아웃 처리에 전달된다(Blacklist 등록 대상)")
+    void logout_passesBearerAccessTokenToService() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header("X-User-Id", userId.toString())
+                        .header("X-User-Role", "USER")
+                        .header("Authorization", "Bearer header.payload.signature")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validLogoutRequestJson()))
+                .andExpect(status().isNoContent());
+
+        ArgumentCaptor<LogoutCommand> captor = ArgumentCaptor.forClass(LogoutCommand.class);
+        verify(logoutService).logout(captor.capture());
+        assertThat(captor.getValue().getUserId()).isEqualTo(userId);
+        assertThat(captor.getValue().getRefreshToken()).isEqualTo("8f3c1e2a-7b4d-4c9e-9a11-3f6d9c0b7e33");
+        assertThat(captor.getValue().getAccessToken()).isEqualTo("header.payload.signature");
+    }
+
+    @Test
+    @DisplayName("Bearer 스킴은 대소문자를 구분하지 않는다")
+    void logout_bearerSchemeIsCaseInsensitive() throws Exception {
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "USER")
+                        .header("Authorization", "bearer header.payload.signature")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validLogoutRequestJson()))
+                .andExpect(status().isNoContent());
+
+        ArgumentCaptor<LogoutCommand> captor = ArgumentCaptor.forClass(LogoutCommand.class);
+        verify(logoutService).logout(captor.capture());
+        assertThat(captor.getValue().getAccessToken()).isEqualTo("header.payload.signature");
+    }
+
+    @Test
+    @DisplayName("Authorization 헤더가 없어도 요청을 거부하지 않고 204를 반환한다(Blacklist는 추가 방어선)")
+    void logout_withoutAuthorizationHeader_stillSucceeds() throws Exception {
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validLogoutRequestJson()))
+                .andExpect(status().isNoContent());
+
+        ArgumentCaptor<LogoutCommand> captor = ArgumentCaptor.forClass(LogoutCommand.class);
+        verify(logoutService).logout(captor.capture());
+        assertThat(captor.getValue().getAccessToken()).isNull();
+    }
+
+    @Test
+    @DisplayName("Bearer 방식이 아닌 Authorization 헤더는 Access Token으로 취급하지 않는다")
+    void logout_nonBearerAuthorization_accessTokenIsNull() throws Exception {
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "USER")
+                        .header("Authorization", "Basic dXNlcjpwYXNz")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validLogoutRequestJson()))
+                .andExpect(status().isNoContent());
+
+        ArgumentCaptor<LogoutCommand> captor = ArgumentCaptor.forClass(LogoutCommand.class);
+        verify(logoutService).logout(captor.capture());
+        assertThat(captor.getValue().getAccessToken()).isNull();
     }
 
     @Test

@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.FeignException;
 import feign.Request;
 import feign.Response;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -66,11 +68,17 @@ class SlackInteractionControllerTest {
                 signatureVerifier, new ObjectMapper(), questOfferService, gameServiceClient);
     }
 
-    private String rawBody(String actionId) {
+    // SlackRawBodyFilter가 필터 체인 맨 앞에서 캐싱해둔 원본 바이트를 request attribute로 흉내낸다.
+    private HttpServletRequest requestWithBody(String actionId) {
         String json = """
                 {"actions":[{"action_id":"%s","value":"%s"}],"user":{"id":"U0123456789"}}
                 """.formatted(actionId, SUGGESTION_ID).strip();
-        return "payload=" + URLEncoder.encode(json, StandardCharsets.UTF_8);
+        String encoded = "payload=" + URLEncoder.encode(json, StandardCharsets.UTF_8);
+        byte[] rawBody = encoded.getBytes(StandardCharsets.UTF_8);
+
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getAttribute(SlackRawBodyFilter.RAW_BODY_ATTRIBUTE)).thenReturn(rawBody);
+        return request;
     }
 
     private QuestOffer sentOffer() {
@@ -83,7 +91,7 @@ class SlackInteractionControllerTest {
         when(signatureVerifier.isValid(any(), any(), any())).thenReturn(false);
 
         assertThatThrownBy(() ->
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody(QuestOfferSlackActions.ACCEPT)))
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody(QuestOfferSlackActions.ACCEPT)))
                 .isInstanceOf(BaseException.class)
                 .hasFieldOrPropertyWithValue("errorCode", NotificationErrorCode.INVALID_SLACK_SIGNATURE);
 
@@ -97,7 +105,7 @@ class SlackInteractionControllerTest {
         when(questOfferService.getBySuggestionId(SUGGESTION_ID)).thenReturn(sentOffer());
 
         ResponseEntity<Void> response =
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody(QuestOfferSlackActions.ACCEPT));
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody(QuestOfferSlackActions.ACCEPT));
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         verify(gameServiceClient).accept(SUGGESTION_ID, USER_ID);
@@ -111,7 +119,7 @@ class SlackInteractionControllerTest {
         when(questOfferService.getBySuggestionId(SUGGESTION_ID)).thenReturn(sentOffer());
 
         ResponseEntity<Void> response =
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody(QuestOfferSlackActions.REJECT));
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody(QuestOfferSlackActions.REJECT));
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         verify(gameServiceClient).reject(SUGGESTION_ID, USER_ID);
@@ -126,7 +134,7 @@ class SlackInteractionControllerTest {
                 .thenThrow(new BaseException(NotificationErrorCode.QUEST_OFFER_NOT_FOUND));
 
         assertThatThrownBy(() ->
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody(QuestOfferSlackActions.ACCEPT)))
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody(QuestOfferSlackActions.ACCEPT)))
                 .isInstanceOf(BaseException.class)
                 .hasFieldOrPropertyWithValue("errorCode", NotificationErrorCode.QUEST_OFFER_NOT_FOUND);
 
@@ -141,7 +149,7 @@ class SlackInteractionControllerTest {
         doThrow(feignExceptionWithStatus(409)).when(gameServiceClient).accept(SUGGESTION_ID, USER_ID);
 
         ResponseEntity<Void> response =
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody(QuestOfferSlackActions.ACCEPT));
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody(QuestOfferSlackActions.ACCEPT));
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
     }
@@ -154,7 +162,7 @@ class SlackInteractionControllerTest {
         doThrow(feignExceptionWithStatus(500)).when(gameServiceClient).accept(SUGGESTION_ID, USER_ID);
 
         assertThatThrownBy(() ->
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody(QuestOfferSlackActions.ACCEPT)))
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody(QuestOfferSlackActions.ACCEPT)))
                 .isInstanceOf(BaseException.class)
                 .hasFieldOrPropertyWithValue("errorCode", NotificationErrorCode.GAME_SERVICE_CALL_FAILED);
     }
@@ -167,7 +175,7 @@ class SlackInteractionControllerTest {
         doThrow(new RuntimeException("connection refused")).when(gameServiceClient).accept(SUGGESTION_ID, USER_ID);
 
         assertThatThrownBy(() ->
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody(QuestOfferSlackActions.ACCEPT)))
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody(QuestOfferSlackActions.ACCEPT)))
                 .isInstanceOf(BaseException.class)
                 .hasFieldOrPropertyWithValue("errorCode", NotificationErrorCode.GAME_SERVICE_CALL_FAILED);
     }
@@ -179,7 +187,7 @@ class SlackInteractionControllerTest {
         when(questOfferService.getBySuggestionId(SUGGESTION_ID)).thenReturn(sentOffer());
 
         ResponseEntity<Void> response =
-                controller.handleInteraction(SIGNATURE, TIMESTAMP, rawBody("quest_offer_snooze"));
+                controller.handleInteraction(SIGNATURE, TIMESTAMP, requestWithBody("quest_offer_snooze"));
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         verifyNoInteractions(gameServiceClient);

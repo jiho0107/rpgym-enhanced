@@ -1,9 +1,15 @@
 server:
   port: 19010
+  # 종료 신호를 받으면 기존 요청이 완료될 시간을 주고, 새로운 요청은 받지 않도록 하는 방식
+  shutdown: graceful
 
 spring:
   application:
     name: user-service
+
+  lifecycle:
+    # Graceful Shutdown 단계별 최대 대기 시간
+    timeout-per-shutdown-phase: 30s
 
   config:
     import: optional:file:.env[.properties]
@@ -57,6 +63,16 @@ management:
   endpoints:
     web:
       exposure:
-        # HTTP로 노출할 Actuator Endpoint
-        # health: 애플리케이션 상태 확인, info: 애플리케이션 정보 확인
-        include: health, info, prometheus
+        include: health, prometheus
+
+  tracing:
+    sampling:
+      # 로컬에서는 모든 요청을 trace 대상으로 잡음
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+springdoc:
+  paths-to-exclude: /api/*/internal/**

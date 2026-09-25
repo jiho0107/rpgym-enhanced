@@ -19,10 +19,11 @@ public class ReqLogoutDto {
     @org.hibernate.validator.constraints.UUID(message = "리프레시 토큰 형식이 올바르지 않습니다.")
     private String refreshToken;
 
-    public LogoutCommand toCommand(UUID userId) {
+    public LogoutCommand toCommand(UUID userId, String accessToken) {
         return LogoutCommand.builder()
                 .userId(userId)
                 .refreshToken(refreshToken)
+                .accessToken(accessToken)
                 .build();
     }
 }

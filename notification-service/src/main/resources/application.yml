@@ -1,9 +1,15 @@
 server:
   port: 19013
+  # 종료 신호를 받으면 기존 요청이 완료될 시간을 주고, 새로운 요청은 받지 않도록 하는 방식
+  shutdown: graceful
 
 spring:
   application:
     name: notification-service
+
+  lifecycle:
+    # Graceful Shutdown 단계별 최대 대기 시간
+    timeout-per-shutdown-phase: 30s
 
   config:
     import:
@@ -100,3 +106,6 @@ rpgym:
   slack:
     bot-token: ${SLACK_BOT_TOKEN}
     signing-secret: ${SLACK_SIGNING_SECRET}
+
+springdoc:
+  paths-to-exclude: /api/*/internal/**

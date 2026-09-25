@@ -1,0 +1,20 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: slack-monitoring-alert
+    receivers:
+      - uid: slack-monitoring-alert
+        type: slack
+        disableResolveMessage: false
+        settings:
+          url: $SLACK_WEBHOOK_URL
+          title: "RPGym Monitoring Alert"
+          text: |
+            {{ range .Alerts }}
+            상태: {{ .Status }}
+            알림: {{ .Labels.alertname }}
+            서비스: {{ .Labels.job }}
+            {{ .Annotations.summary }}
+            {{ .Annotations.description }}
+            {{ end }}

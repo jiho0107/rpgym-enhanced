@@ -1,6 +1,7 @@
 package com.workoutdone.rpgym.notification.questoffer.adapter.in.kafka;
 
 import com.workoutdone.rpgym.notification.questoffer.FakeQuestOfferRepository;
+import com.workoutdone.rpgym.notification.partyquest.application.PartyQuestCreatedHandler;
 import com.workoutdone.rpgym.notification.questoffer.adapter.out.client.UserServiceClient;
 import com.workoutdone.rpgym.notification.questoffer.adapter.out.client.dto.UserInfoResponse;
 import com.workoutdone.rpgym.notification.questoffer.adapter.out.slack.QuestOfferSlackNotifier;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,7 +64,8 @@ class GameEventConsumerIdempotencyTest {
         ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
         consumer = new GameEventConsumer(
-                objectMapper, questOfferService, userServiceClient, questOfferSlackNotifier, new RetryTemplate());
+                objectMapper, questOfferService, userServiceClient, questOfferSlackNotifier, new RetryTemplate(),
+                mock(PartyQuestCreatedHandler.class));
     }
 
     private String questSuggestedEvent() {

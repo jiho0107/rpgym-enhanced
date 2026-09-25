@@ -33,13 +33,20 @@ public class SlackSignatureVerifier {
     }
 
     // 이 요청이 진짜 Slack이 보낸 게 맞는지 최종 판정
-    public boolean isValid(String signature, String timestamp, String rawBody) {
-        if (signature == null || timestamp == null || isTimestampTooOld(timestamp)) {
+    public boolean isValid(String signature, String timestamp, byte[] rawBodyBytes) {
+        if (rawBodyBytes == null || signature == null || timestamp == null || isTimestampTooOld(timestamp)) {
             return false;
         }
 
-        //직접 계산한 도장
-        String expected = VERSION + "=" + hmacSha256Hex(VERSION + ":" + timestamp + ":" + rawBody);
+        // base string("v0:{timestamp}:{body}")을 문자열로 조립하지 않고 바이트로 직접 이어붙인다.
+        // body를 String으로 바꿨다가 다시 바이트로 되돌리는 왕복 과정 자체를 없애서,
+        // 그 사이의 문자셋 디코딩/인코딩으로 원본 바이트가 달라질 여지를 원천 차단한다.
+        byte[] prefix = (VERSION + ":" + timestamp + ":").getBytes(StandardCharsets.UTF_8);
+        byte[] baseString = new byte[prefix.length + rawBodyBytes.length];
+        System.arraycopy(prefix, 0, baseString, 0, prefix.length);
+        System.arraycopy(rawBodyBytes, 0, baseString, prefix.length, rawBodyBytes.length);
+
+        String expected = VERSION + "=" + hmacSha256Hex(baseString);
 
         // 단순 equals()가 아니라 isEqual()을 사용
         // -- 문자열 비교 시간 차이로 서명을 한 글자씩 알아내는 타이밍 공격을 막기 위함이다.
@@ -62,12 +69,12 @@ public class SlackSignatureVerifier {
         }
     }
 
-    // 문자열을 Signing Secret으로 HMAC-SHA256 암호화해서 16진수 문자열로 돌려준다.
-    private String hmacSha256Hex(String message) {
+    // 바이트 배열을 Signing Secret으로 HMAC-SHA256 암호화해서 16진수 문자열로 돌려준다.
+    private String hmacSha256Hex(byte[] message) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(signingSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] hash = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
+            byte[] hash = mac.doFinal(message);
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("HMAC-SHA256 서명 계산에 실패했다", e);

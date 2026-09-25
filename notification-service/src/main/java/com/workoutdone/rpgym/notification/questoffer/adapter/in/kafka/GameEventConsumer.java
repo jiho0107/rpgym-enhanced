@@ -1,5 +1,7 @@
 package com.workoutdone.rpgym.notification.questoffer.adapter.in.kafka;
 
+import com.workoutdone.rpgym.notification.partyquest.adapter.in.kafka.dto.PartyQuestCreatedData;
+import com.workoutdone.rpgym.notification.partyquest.application.PartyQuestCreatedHandler;
 import com.workoutdone.rpgym.notification.questoffer.adapter.in.kafka.dto.GameEventEnvelope;
 import com.workoutdone.rpgym.notification.questoffer.adapter.in.kafka.dto.QuestSuggestedData;
 import com.workoutdone.rpgym.notification.questoffer.adapter.out.client.UserServiceClient;
@@ -23,7 +25,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * game.events 토픽에서 QUEST_SUGGESTED만 골라 처리한다.
+ * game.events 토픽에서 QUEST_SUGGESTED(일일 퀘스트 제안됨), PARTY_QUEST_CREATED(파티 퀘스트 생성됨)만 골라 처리한다.
  *
  * 이 클래스가 트랜잭션을 직접 열지 않고 세 단계(DB 준비 -> Slack 호출 -> DB 확정)를
  * 순서대로 오케스트레이션하는 이유는 QuestOfferService 쪽 주석과 같다
@@ -43,12 +45,14 @@ import java.util.UUID;
 public class GameEventConsumer {
 
     private static final String QUEST_SUGGESTED = "QUEST_SUGGESTED";
+    private static final String PARTY_QUEST_CREATED = "PARTY_QUEST_CREATED";
 
     private final ObjectMapper objectMapper;
     private final QuestOfferService questOfferService;
     private final UserServiceClient userServiceClient;
     private final QuestOfferSlackNotifier questOfferSlackNotifier;
     private final RetryTemplate retryTemplate;
+    private final PartyQuestCreatedHandler partyQuestCreatedHandler;
 
     @KafkaListener(topics = "${rpgym.kafka.game-events-topic}")
     public void consume(String message) {
@@ -67,24 +71,39 @@ public class GameEventConsumer {
             return;
         }
 
-        if (!QUEST_SUGGESTED.equals(envelope.eventType())) {
+        if (!QUEST_SUGGESTED.equals(envelope.eventType())
+                && !PARTY_QUEST_CREATED.equals(envelope.eventType())) {
             // 이 토픽에 다른 이벤트(QUEST_CREATED, QUEST_COMPLETED 등)가 실려도 offset은 정상적으로 밀려야 하므로 예외를 던지지 않는다.
-            log.debug("QUEST_SUGGESTED가 아니라 건너뛴다. eventType={}", envelope.eventType());
+            log.debug("처리 대상 이벤트가 아니라 건너뛴다. eventType={}", envelope.eventType());
             return;
         }
 
         MDC.put("eventId", String.valueOf(envelope.eventId()));
         MDC.put("userId", String.valueOf(envelope.userId()));
         try {
-            handle(envelope);
+            if (QUEST_SUGGESTED.equals(envelope.eventType())) { // QUEST_SUGGESTED
+                handle(envelope);
+            } else { //PARTY_QUEST_SUGGESTED
+                handlePartyQuestCreated(envelope);
+            }
         } finally {
             MDC.remove("eventId");
             MDC.remove("userId");
         }
     }
 
+    //PARTY_QUEST_CREATED 처리
+    private void handlePartyQuestCreated(GameEventEnvelope envelope) {
+        PartyQuestCreatedData data = convert(envelope.data(), PartyQuestCreatedData.class);
+        if (data == null) {
+            return;
+        }
+        partyQuestCreatedHandler.handle(data);
+    }
+
+    //QUEST_SUGGESTED 처리
     private void handle(GameEventEnvelope envelope) {
-        QuestSuggestedData data = convert(envelope.data());
+        QuestSuggestedData data = convert(envelope.data(), QuestSuggestedData.class);
         if (data == null || data.suggestionId() == null || data.title() == null) {
             log.error("QUEST_SUGGESTED 필수 필드 누락. 건너뛴다. data={}", envelope.data());
             return;
@@ -118,13 +137,13 @@ public class GameEventConsumer {
                 data.suggestionId(), envelope.userId(), result.channel());
     }
 
-    private QuestSuggestedData convert(JsonNode data) {
+    private <T> T convert(JsonNode data, Class<T> type) {
         if (data == null || data.isNull()) {
             log.error("data가 비어 있다. 건너뛴다.");
             return null;
         }
         try {
-            return objectMapper.treeToValue(data, QuestSuggestedData.class);
+            return objectMapper.treeToValue(data, type);
         } catch (JsonProcessingException e) {
             log.error("data 변환 실패. data={}", data, e);
             return null;

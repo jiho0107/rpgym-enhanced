@@ -1,9 +1,15 @@
 server:
   port: 19012
+  # 종료 신호를 받으면 기존 요청이 완료될 시간을 주고, 새로운 요청은 받지 않도록 하는 방식
+  shutdown: graceful
 
 spring:
   application:
     name: game-service
+
+  lifecycle:
+    # Graceful Shutdown 단계별 최대 대기 시간
+    timeout-per-shutdown-phase: 30s
 
   config:
     # 실행 위치에 따라 작업 디렉터리가 다르므로 두 경로를 모두 시도한다
@@ -136,9 +142,18 @@ management:
     web:
       exposure:
         # HTTP로 노출할 Actuator Endpoint
-        # health: 상태 확인, info: 애플리케이션 정보
+        # health: 상태 확인
         # prometheus: monitoring/prometheus/prometheus.yml 이 15초마다 스크랩한다
-        include: health, info, prometheus
+        include: health, prometheus
+
+  tracing:
+    sampling:
+      # 로컬에서는 모든 요청을 trace 대상으로 잡음
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
 
 rpgym:
   kafka:
@@ -185,3 +200,6 @@ rpgym:
       poll-size: 100
       send-timeout: 5s
       escalate-after: 10
+
+springdoc:
+  paths-to-exclude: /api/*/internal/**
