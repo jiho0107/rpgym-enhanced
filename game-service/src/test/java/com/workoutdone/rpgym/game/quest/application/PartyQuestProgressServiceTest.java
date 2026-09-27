@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -203,7 +205,36 @@ class PartyQuestProgressServiceTest {
         assertEquals(REWARD_XP, data.rewardXp());
         // 알림 쪽이 이 명단을 돌면서 각자에게 알린다
         assertEquals(4, data.members().size());
-        assertEquals(2200, data.members().get(0).contributedValue());
+
+        // 명단 순서는 중요하지않음. 지급 전에 userId 로 정렬하므로(락 순서 고정) 몇 번째인지로 찾으면
+        // 랜덤 UUID 에 따라 통과했다 실패했다 한다. 순서가 아니라 "누구인지" 로 찾는다.
+        PartyQuestCompletedData.Member me = data.members().stream()
+                .filter(member -> member.userId().equals(USER_ID))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(2200, me.contributedValue());
+    }
+
+    @Test
+    @DisplayName("보상은 userId 오름차순으로 지급한다 -- 지갑 락을 잡는 순서를 모든 트랜잭션에서 같게 만든다")
+    void 보상은_userId_순서로_지급한다() {
+        when(partyQuestRepository.claimCompletion(any(), any())).thenReturn(1);
+        when(partyQuestRepository.findById(PARTY_QUEST_ID)).thenReturn(Optional.of(partyQuest));
+        // fourMembers() 는 부를 때마다 새 UUID 를 만든다. 기대 순서와 비교하려면 한 번만 만든다.
+        List<PartyQuestMember> members = fourMembers();
+        when(memberRepository.findByPartyQuestId(PARTY_QUEST_ID)).thenReturn(members);
+
+        service.apply(USER_ID, snapshot(5200));
+
+        List<UUID> expectedOrder = members.stream()
+                .map(PartyQuestMember::getUserId)
+                .sorted()
+                .toList();
+        InOrder inOrder = inOrder(xpGrantService);
+        for (UUID userId : expectedOrder) {
+            inOrder.verify(xpGrantService).grant(
+                    eq(userId), eq(SourceType.PARTY_QUEST), eq(PARTY_QUEST_ID), eq(REWARD_XP), eq(MEASURED_AT));
+        }
     }
 
     @Test
