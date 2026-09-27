@@ -346,6 +346,10 @@ services:
     environment:
       EUREKA_SERVER_URL: http://eureka-server-blue:19000/eureka/
       JWT_SECRET: ${JWT_SECRET}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
@@ -363,9 +367,12 @@ services:
     depends_on:
       eureka-server-blue:
         condition: service_healthy
+      redis:
+        condition: service_started
 
     networks:
       - blue-network
+      - shared-network
 
   # Gateway Green
   gateway-green:
@@ -380,6 +387,10 @@ services:
     environment:
       EUREKA_SERVER_URL: http://eureka-server-green:19000/eureka/
       JWT_SECRET: ${JWT_SECRET}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY}
 
@@ -397,9 +408,12 @@ services:
     depends_on:
       eureka-server-green:
         condition: service_healthy
+      redis:
+        condition: service_started
 
     networks:
       - green-network
+      - shared-network
 
   # User Blue
   user-service-blue:

@@ -7,6 +7,11 @@ spring:
   application:
     name: gateway-server
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:19031}
+
   lifecycle:
     # Graceful Shutdown 단계별 최대 대기 시간
     timeout-per-shutdown-phase: 30s
