@@ -52,9 +52,25 @@ CREATE TABLE game_service.xp_ledgers (
     CONSTRAINT ck_xp_ledgers_source_type CHECK (source_type IN ('QUEST'))
 );
 
+-- 중복 지급이 절대 없도록 막음
+
+-- 동작: DB에 user_id, source_type, source_id 조합이 동일한 행이 존재하면
+-- 두번째 insert 시점에 DB가 에러를 터뜨리며 트랜잭션 롤백 flag를 세움
+
+-- 부가효과: 유니크 제약 조건을 검사하려면 해당 컬럼을 빨리 찾아야 하므로 b-tree 색인
+-- 이 내부에 자동으로 생성
+
+-- 요약하자면 이 유저(userid)가 같은 퀘스트/파티퀘스트 보상을 두번 받는 일이 없도록
+-- DB단에서 막는다
 CREATE UNIQUE INDEX uk_xp_ledgers_source
     ON game_service.xp_ledgers (user_id, source_type, source_id);
 
+-- 특정 조회 쿼리의 검색/정렬 속도 향상
+
+-- 동작: 동일한 userid와 occured_at조합이 100개 들어와도 아무런 제약없이 저장
+-- 다만 데이터를 미리 user_id 기준 + occuredAt 최신순(DESC)로 정렬된 B-tree로 만듦
+
+-- 요약하자면 유저가 자기 xp 내역 볼때 테이블 전체를 뒤지지 말고 최신순으로 빠르게 찾아라
 CREATE INDEX idx_xp_ledgers_user
     ON game_service.xp_ledgers (user_id, occurred_at DESC);
 
