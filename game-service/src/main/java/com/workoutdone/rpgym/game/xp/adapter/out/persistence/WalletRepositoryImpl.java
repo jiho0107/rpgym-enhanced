@@ -24,4 +24,9 @@ public class WalletRepositoryImpl implements WalletRepository {
     public Wallet save(Wallet wallet) {
         return walletJpaRepository.save(wallet);
     }
+
+    @Override
+    public int addXp(UUID userId, int amount) {
+        return walletJpaRepository.addXp(userId, amount);
+    }
 }

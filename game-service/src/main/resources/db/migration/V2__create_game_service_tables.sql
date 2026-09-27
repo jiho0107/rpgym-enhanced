@@ -52,6 +52,7 @@ CREATE TABLE game_service.xp_ledgers (
     CONSTRAINT ck_xp_ledgers_source_type CHECK (source_type IN ('QUEST'))
 );
 
+
 CREATE UNIQUE INDEX uk_xp_ledgers_source
     ON game_service.xp_ledgers (user_id, source_type, source_id);
 

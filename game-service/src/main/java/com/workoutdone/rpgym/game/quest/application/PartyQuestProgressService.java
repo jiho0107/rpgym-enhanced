@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -123,7 +124,13 @@ public class PartyQuestProgressService {
                 .orElseThrow(() -> new IllegalStateException(
                         "방금 완료시킨 파티 퀘스트를 다시 읽을 수 없다. partyQuestId=" + partyQuestId));
 
-        List<PartyQuestMember> members = partyQuestMemberRepository.findByPartyQuestId(partyQuestId);
+        // 지갑을 갱신하는 순서를 userId 로 고정한다.
+        // 한 유저가 두 파티에 속하는 것을 막는 제약이 없어서, 두 파티가 동시에 완료되면
+        // 한쪽은 A -> B, 다른 쪽은 B -> A 순서로 지갑 행 락을 잡아 서로를 기다릴 수 있다 (데드락).
+        // 모든 트랜잭션이 같은 순서로 락을 잡으면 순환 대기가 생기지 않는다.
+        List<PartyQuestMember> members = partyQuestMemberRepository.findByPartyQuestId(partyQuestId).stream()
+                .sorted(Comparator.comparing(PartyQuestMember::getUserId))
+                .toList();
 
         // 멤버 수만큼 원장에 행이 생긴다. 중복이 아니라 정상적인 패턴.
         // 중복은 같은 멤버에게 두 행이 들어가는 것이고, 그것은 원장의 유니크 제약이 막는다.
