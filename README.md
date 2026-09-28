@@ -1,6 +1,26 @@
 # RPGym
 
+<p align="center">
+  <img src="assets/rpgym-mascot.svg" alt="덤벨을 들고 퀘스트를 수행하는 RPGym 마스코트" width="820" />
+</p>
+
 **건강 활동을 퀘스트와 보상으로 연결하는 헬스케어 게이미피케이션 플랫폼**입니다. 건강 데이터를 확인하는 데서 그치지 않고, 목표에 맞춘 퀘스트를 수행하고 XP·캐릭터 성장·파티·랭킹으로 이어지도록 설계했습니다.
+
+## 목차
+
+- [프로젝트 소개](#프로젝트-소개)
+- [팀 소개](#팀-소개)
+- [주요 기능](#주요-기능)
+- [아키텍처](#아키텍처)
+  - [인프라 설계도](#인프라-설계도)
+  - [서비스 간 흐름](#서비스-간-흐름)
+  - [서비스 상세](#서비스-상세)
+- [기술 스택](#기술-스택)
+- [시작하기](#시작하기)
+  - [준비물](#준비물)
+  - [인프라 실행](#인프라-실행)
+  - [애플리케이션 실행](#애플리케이션-실행)
+- [API 문서 및 개발 자료](#api-문서-및-개발-자료)
 
 ## 프로젝트 소개
 
@@ -52,64 +72,11 @@ Spring 기반 마이크로서비스로 기능과 데이터 소유권을 분리�
 
 ### 인프라 설계도
 
-운영 배포는 AWS EC2 한 대에서 Docker Compose로 구성하며, Blue-Green 슬롯을 번갈아 배포합니다. 아래는 운영 구성의 주요 연결 관계입니다.
+운영 배포는 AWS EC2 한 대에서 Docker Compose로 구성하며, Blue-Green 슬롯을 번갈아 배포합니다. 아래 설계도는 컨테이너 구성, 네트워크, 데이터 저장소, 모니터링, CI/CD 배포 흐름을 보여줍니다.
 
-```mermaid
-flowchart TB
-    CLIENT[사용자·Slack] -->|HTTP :80| NGINX[Nginx Reverse Proxy]
-
-    subgraph BLUE[Blue 네트워크]
-        E_B[Eureka Blue]
-        GW_B[Gateway Blue]
-        S_B[User · Health · Game · Notification Blue]
-        GW_B <--> E_B
-        S_B <--> E_B
-    end
-
-    subgraph GREEN[Green 네트워크]
-        E_G[Eureka Green]
-        GW_G[Gateway Green]
-        S_G[User · Health · Game · Notification Green]
-        GW_G <--> E_G
-        S_G <--> E_G
-    end
-
-    NGINX -->|활성 슬롯| GW_B
-    NGINX -->|활성 슬롯| GW_G
-
-    subgraph SHARED[공유 네트워크·영속 데이터]
-        PG[(서비스별 PostgreSQL 4개)]
-        KAFKA[(Kafka)]
-        REDIS[(Redis)]
-        PROM[Prometheus]
-        GRAF[Grafana]
-        LOKI[Loki]
-        ALLOY[Grafana Alloy]
-        ZIPKIN[Zipkin]
-        KUI[Kafka UI]
-    end
-
-    S_B --> PG
-    S_G --> PG
-    S_B <--> KAFKA
-    S_G <--> KAFKA
-    GW_B --> REDIS
-    GW_G --> REDIS
-    S_B --> REDIS
-    S_G --> REDIS
-    PROM --> S_B
-    PROM --> S_G
-    GRAF --> PROM
-    ALLOY --> LOKI
-    GRAF --> LOKI
-    S_B --> ZIPKIN
-    S_G --> ZIPKIN
-    NGINX -->|/grafana · /zipkin · /kafka-ui| GRAF
-    NGINX --> KUI
-
-    GHA[GitHub Actions CI/CD] -->|빌드 후 SSH 배포| EC2[AWS EC2 · Docker Compose]
-    EC2 -->|비활성 슬롯 기동·헬스체크 후 upstream 전환| NGINX
-```
+<p align="center">
+  <img src="assets/infrastructure-architecture.png" alt="AWS EC2에서 Docker Compose로 운영하는 RPGym의 Blue-Green 인프라 설계도" width="1000" />
+</p>
 
 - Nginx는 외부 포트 80을 열고, 앱 트래픽을 활성 Gateway로 전달합니다. 운영용 Grafana·Zipkin·Kafka UI도 경로 기반으로 프록시하며, Zipkin과 Kafka UI는 Basic Auth로 보호합니다.
 - Blue와 Green은 각각 Gateway·Eureka·비즈니스 서비스 인스턴스를 두고, 데이터베이스·Kafka·Redis는 두 슬롯이 공유합니다. 서비스별 PostgreSQL 인스턴스와 영속 볼륨으로 데이터를 유지합니다.
@@ -192,13 +159,15 @@ Kafka 소비자는 중복 또는 순서가 뒤바뀐 활동 이벤트를 고려�
 
 ## 기술 스택
 
-- **언어 및 프레임워크**: Java 17, Spring Boot 3.5, Spring Cloud 2025
-- **서비스 통신**: Spring Cloud Gateway, Eureka, OpenFeign
-- **데이터 및 메시징**: PostgreSQL 16, Redis 8, Apache Kafka 4.3, Flyway
-- **외부 연동**: Google Gemini API, Slack API
-- **인프라 및 관측**: Docker Compose, Nginx, Prometheus, Grafana, Loki, Grafana Alloy, Zipkin
-- **API 문서**: Springdoc OpenAPI / Swagger UI
-- **빌드 및 배포**: Gradle, GitHub Actions, AWS
+| 구분 | 기술 | 사용 목적 |
+| --- | --- | --- |
+| 언어·프레임워크 | Java 17, Spring Boot 3.5, Spring Cloud 2025 | 서비스 및 API 구현 |
+| 서비스 통신 | Spring Cloud Gateway, Eureka, OpenFeign, Resilience4j | API 라우팅, 서비스 탐색, 서비스 간 호출과 장애 대응 |
+| 데이터·메시징 | PostgreSQL 16, Redis 8, Apache Kafka 4.3, Flyway | 서비스별 데이터 저장, 캐시·랭킹·토큰 처리, 이벤트 전달, 스키마 버전 관리 |
+| 외부 연동 | Google Gemini API, Slack API, Health Connect 데이터 수집 경로 | 맞춤 퀘스트 제안, 사용자 알림과 건강 활동 동기화 |
+| 인프라·배포 | Docker Compose, Nginx, GitHub Actions, AWS EC2 (Ubuntu 24.04 LTS) | 컨테이너 실행, Reverse Proxy, CI/CD 및 Blue-Green 배포 |
+| 모니터링·추적 | Prometheus, Grafana, Loki, Grafana Alloy, Zipkin, Micrometer Tracing | 메트릭·로그·분산 트레이스 수집 및 시각화 |
+| 테스트·API 도구 | JUnit 5, Mockito, AssertJ, Testcontainers, Awaitility, Postman, JMeter, Swagger UI | 자동화·통합·부하 테스트 및 API 확인 |
 
 ## 시작하기
 
