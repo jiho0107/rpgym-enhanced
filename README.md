@@ -11,6 +11,7 @@
 - [주요 기능](#주요-기능)
 - [아키텍처](#아키텍처)
   - [인프라 설계도](#인프라-설계도)
+  - [ERD](#erd)
   - [서비스 간 흐름](#서비스-간-흐름)
   - [서비스 상세](#서비스-상세)
 - [트러블슈팅](#트러블슈팅)
@@ -81,6 +82,12 @@ Spring 기반 마이크로서비스로 기능과 데이터 소유권을 분리�
 - Prometheus는 서비스 메트릭을 수집하고 Grafana에서 메트릭·로그 대시보드를 확인합니다. Grafana Alloy는 컨테이너 로그를 Loki로 전달하고, Zipkin은 분산 트레이스를 수집합니다.
 
 개발 환경은 `docker-compose-develop.yml`로 공용 인프라를 로컬에 띄우고 각 애플리케이션 서비스를 Gradle로 실행합니다. 운영 환경의 Blue-Green 구성은 `docker-compose-prod.yml`을 기준으로 합니다.
+
+### ERD
+
+서비스별 PostgreSQL 스키마와 테이블 관계를 정리한 ERD입니다. 원본 크기로 보려면 이미지를 클릭하세요.
+
+[![RPGym 서비스별 ERD](assets/rpgym-erd.png)](assets/rpgym-erd.png)
 
 ### 서비스 간 흐름
 
