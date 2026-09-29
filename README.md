@@ -122,7 +122,7 @@ Kafka 소비자는 중복 또는 순서가 뒤바뀐 활동 이벤트를 고려�
 #### API Gateway (`gateway-server`)
 
 - 외부 API의 단일 진입점이며, Eureka에 등록된 서비스로 경로를 라우팅합니다.
-- JWT를 검증하고 요청의 사용자 식별 정보를 서비스에 전달합니다. 서비스별 OpenAPI 문서를 모아 통합 Swagger UI를 제공합니다.
+- JWT를 검증하고 요청의 사용자 식별 정보(X-UserId, X-UserRole)를 헤더에 담아 서비스에 전달합니다. 서비스별 OpenAPI 문서를 모아 통합 Swagger UI를 제공합니다.
 - Actuator 메트릭 포트와 사용자 요청 포트를 분리하고, 요청 타임아웃과 graceful shutdown 설정을 적용합니다.
 
 #### Service Discovery (`discovery-server`)
@@ -134,8 +134,7 @@ Kafka 소비자는 중복 또는 순서가 뒤바뀐 활동 이벤트를 고려�
 
 - 회원가입·로그인과 JWT 발급, 토큰 재발급 회전(RTR), 로그아웃 및 회원 계정을 관리합니다.
 - 바디 프로필과 일일 건강 목표를 저장하고 조회합니다.
-- Health Service가 목표 달성률을 계산할 때 필요한 사용자 목표 정보를 제공하며, Notification Service에서 사용할 사용자 및 Slack 정보를 제공합니다.
-
+- Health Service가 목표 달성률을 계산할 때 필요한 일일 건강 목표 정보를 제공하며, Notification Service에서 사용할 사용자의 Slack 정보를 제공합니다.
 #### Health Service (`health-service`)
 
 - 걸음 수, 활동 시간, 활동 칼로리의 건강 활동을 측정 시각 기준 누적 스냅샷으로 저장하고 오늘의 활동 및 목표 진행 현황을 제공합니다.
@@ -251,4 +250,5 @@ Windows에서는 `./gradlew` 대신 `gradlew.bat`을 사용할 수 있습니다.
 - Swagger UI는 Gateway 통합 문서를 포함해 Gateway 실행 후 `http://localhost:19001/swagger-ui.html`에서 확인할 수 있습니다.
 - 건강 활동 수집 채널과 `measuredAt`·재전송 규약은 [health-service/docs/activity-ingest.md](health-service/docs/activity-ingest.md)에 정리되어 있습니다.
 - API, 데이터 모델, 시스템·인프라 구조 자료는 [팀 프로젝트 노션](https://app.notion.com/p/RPGym-3ccbd90be68380d49b6cf22bee3ae44f)에서 확인할 수 있습니다.
+- 프로젝트 발표 자료: [오운완 프로젝트 발표자료 (PDF)](docs/presentation/오운완-프로젝트-발표자료.pdf)
 - 원격 저장소: [workout-done/rp-gym](https://github.com/workout-done/rp-gym)
