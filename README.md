@@ -41,8 +41,8 @@ Health Service에는 Health Connect에서 읽은 데이터를 `HEALTH_CONNECT` �
 - **최유준** · Game Service — 퀘스트와 게임 서비스의 핵심 기능을 구현했습니다.
 - **남건우** · Game Service — 캐릭터, 랭킹, 파티, 업적 기능을 설계하고 구현했습니다.
 - **황지호** · User Service / Notification Service — 사용자 인증, 바디 프로필, 일일 건강 목표 및 Slack 알림을 구현했습니다.
-- **진혜림** · Health Service — 건강 활동 데이터 수집·분석과 건강 목표 달성 현황 처리를 담당했습니다.
-- **강윤석** · Health Service — 건강 활동 및 건강 서비스 기능을 구현했습니다.
+- **진혜림** · Health Service — Health Connect 연동 데이터와 개발·시연용 Synthetic 데이터를 수집하는 백엔드 경로를 구현하고, 건강 활동 이벤트 발행을 담당했습니다.
+- **강윤석** · Health Service — Gemini AI를 활용한 퀘스트 제안 기능과 일일 목표 달성 상태 갱신을 구현했습니다.
 
 ## 주요 기능
 
