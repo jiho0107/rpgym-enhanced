@@ -1,6 +1,6 @@
 # RPGym
 
-![RPGym 팀 건강 퀘스트 이미지](assets/rpgym-project-hero.jpg)
+![RPGym 팀 건강 퀘스트 이미지](assets/rpgym-project-hero.webp)
 
 **건강 활동을 퀘스트와 보상으로 연결하는 헬스케어 게이미피케이션 플랫폼**입니다. 건강 데이터를 확인하는 데서 그치지 않고, 목표에 맞춘 퀘스트를 수행하고 XP·캐릭터 성장·파티·랭킹으로 이어지도록 설계했습니다.
 
