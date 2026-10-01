@@ -15,6 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 // 파티 하나가 함께 채우는 퀘스트다.
@@ -34,6 +36,8 @@ import java.util.UUID;
 @Table(name = "party_quests", schema = "game_service")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PartyQuest extends BaseCreatedUpdatedEntity {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Id
     @Column(name = "party_quest_id", nullable = false, updatable = false)
@@ -116,5 +120,12 @@ public class PartyQuest extends BaseCreatedUpdatedEntity {
         partyQuest.startedAt = startedAt;
         partyQuest.expiredAt = expiredAt;
         return partyQuest;
+    }
+
+    // 하루치 퀘스트기 때문에 기한이 그날 한국 시간 자정 직전에 대한 반환.
+    // 컬럼을 따로 두지 않는다. 이미 expiredAt이 존재하기 때문에 칼럼의 값은
+    // 고정하고 expiredAt 값을 읽어서 한국 시간 날짜 즉 LocalDate를 반환한다.
+    public LocalDate activityDate() {
+        return expiredAt.atZone(KST).toLocalDate();
     }
 }
