@@ -175,7 +175,9 @@ public class Quest extends BaseCreatedUpdatedEntity {
         // Instant.now()가 아니라 measuredAt으로 판정한다. 컨슈머가 죽었다 자정 넘어
         // 살아나도, 만료 전에 목표를 채운 유저는 보상을 받아야 한다.
         // 같은 이벤트를 언제 처리하든 결과가 같아야 멱등이다.
-        if (measuredAt.isAfter(expiredAt)) {
+        // 유효 구간은 [baseline, expiredAt) 이다.
+        // 퀘스트만 다른 파티퀘스트와 달리 조회 기준이 달라서 통일함
+        if (!measuredAt.isBefore(expiredAt)) {
             return new ApplyResult.Ignored(ApplyResult.Reason.AFTER_EXPIRY);
         }
 
@@ -216,7 +218,7 @@ public class Quest extends BaseCreatedUpdatedEntity {
 
 
     public QuestStatus displayStatus(Instant at) {
-        if (status == QuestStatus.ACTIVE && at.isAfter(expiredAt)) {
+        if (status == QuestStatus.ACTIVE && !at.isBefore(expiredAt)) {
             return QuestStatus.EXPIRED;
         }
         return status;

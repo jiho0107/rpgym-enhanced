@@ -198,6 +198,17 @@ class QuestApplySnapshotTest {
     }
 
     @Test
+    @DisplayName("만료 시각과 같은 시각의 스냅샷은 만료로 본다 — 조회 쿼리(expiredAt > at)와 경계가 같다")
+    void 만료_시각_정각의_스냅샷은_만료로_본다() {
+        Quest quest = activeQuest();
+
+        Snapshot s = snapshot("2026-08-28T14:59:59Z", 60); // KST 23:59:59 = EXPIRES_AT
+
+        assertIgnored(quest.applySnapshot(s), ApplyResult.Reason.AFTER_EXPIRY);
+        assertEquals(QuestStatus.ACTIVE, quest.getStatus());
+    }
+
+    @Test
     @DisplayName("★ 만료 직전 스냅샷은 처리가 자정을 넘겨도 완료된다")
     void 만료_직전_스냅샷은_처리가_늦어도_완료된다() {
         Quest quest = activeQuest();

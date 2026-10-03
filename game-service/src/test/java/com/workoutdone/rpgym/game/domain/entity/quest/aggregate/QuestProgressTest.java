@@ -78,11 +78,19 @@ class QuestProgressTest {
     }
 
     @Test
-    @DisplayName("만료 시각 정각에는 아직 ACTIVE다 — applySnapshot과 경계가 같다")
-    void 만료_정각에는_아직_ACTIVE다() {
+    @DisplayName("만료 시각 정각에는 EXPIRED다 — applySnapshot · 조회 쿼리와 경계가 같다")
+    void 만료_정각에는_EXPIRED다() {
         Quest quest = activeQuest();
 
-        assertEquals(QuestStatus.ACTIVE, quest.displayStatus(EXPIRES_AT));
+        assertEquals(QuestStatus.EXPIRED, quest.displayStatus(EXPIRES_AT));
+    }
+
+    @Test
+    @DisplayName("만료 시각 직전에는 아직 ACTIVE다")
+    void 만료_직전에는_아직_ACTIVE다() {
+        Quest quest = activeQuest();
+
+        assertEquals(QuestStatus.ACTIVE, quest.displayStatus(EXPIRES_AT.minusMillis(1)));
     }
 
     @Test
