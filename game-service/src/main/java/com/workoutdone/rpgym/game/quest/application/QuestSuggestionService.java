@@ -40,11 +40,12 @@ public class QuestSuggestionService {
     private final QuestSuggestionRepository questSuggestionRepository;
     private final OutboxRecorder outboxRecorder;
 
+    // 제안을 저장하면서 slack 카드용 이벤트를 outbox에 적재
     @Transactional
     public SuggestionOutcome store(QuestSuggestionCommand command) {
         // 같은 제안이 두 번 배달되는 것은 카프카에서 정상이다.
         // 오프셋을 커밋하기 전에 죽으면 반드시 다시 오고, Health 쪽 아웃박스가 재발행해도 다시 온다.
-        //
+
         // 이 한 줄이 없으면 두 번째 저장이 기본키 제약에 걸려 예외가 되고,
         // 그 예외는 컨슈머 밖으로 나가 무한 재시도 핸들러를 만난다.
         // 몇 번을 다시 해도 같은 식별자가 같은 제약에 걸리므로 그 파티션이 영원히 멈춘다.
@@ -75,11 +76,11 @@ public class QuestSuggestionService {
         ));
 
         // 알림 담당 서비스가 이 이벤트를 받아 Slack 카드를 띄운다.
-        //
+
         // 예전에는 알림 쪽이 Health 의 토픽을 직접 구독하고 내 서비스는 저장만 하는 그림이었다.
         // 그때 근거는 "카드에 필요한 내용이 Health 이벤트에 이미 다 있으니 내가 한 번 거쳐도
         // 정보가 늘지 않는다" 였다. 그 근거가 지금은 성립하지 않는다.
-        //
+
         // 제안의 수명과 상태를 내가 소유하게 됐기 때문이다.
         // 카드의 수락 버튼에 박힐 식별자는 내가 발급한 것이어야 하고,
         // 무엇보다 저장에 실패한 제안은 카드가 나가면 안 된다.
@@ -113,7 +114,7 @@ public class QuestSuggestionService {
         return outcome;
     }
 
-    // 보내는 쪽이 계약을 어긴 경우다. 사람이 봐야 한다.
+    // 보내는 쪽이 계약을 어긴 경우다. 사람이 이유를 알아야함.
     private SuggestionOutcome rejected(SuggestionOutcome outcome, QuestSuggestionCommand command) {
         log.error("quest suggestion rejected: outcome={} suggestionId={} userId={} metric={} target={}",
                 outcome, command.suggestionId(), command.userId(),

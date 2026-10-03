@@ -69,7 +69,7 @@ public class HealthEventConsumer {
         }
 
         // eventType이 null이면 아래 switch가 NPE를 던지고, 그 NPE는 무한 재시도가 된다.
-        // 컨슈머가 ACK를 보내지 못하고, 메시지 소비 -> NPE -> NACK -> 메시지큐 offset 미전진
+        // 컨슈머가 ACK를 보내지 못하고, 메시지 소비 -> NPE -> NACK(카프카가 실제로 이걸받진않지만 관용적표현임) -> 메시지큐 offset 미전진
         // userId가 null이면 그대로 서비스로 내려가 저장 시점에 터진다.
         if (envelope.eventType() == null || envelope.userId() == null) {
             log.error("envelope 필수 필드 누락. 건너뛴다. eventType={} userId={}",
