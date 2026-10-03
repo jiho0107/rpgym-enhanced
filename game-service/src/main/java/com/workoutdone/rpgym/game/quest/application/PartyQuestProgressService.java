@@ -78,7 +78,7 @@ public class PartyQuestProgressService {
         PartyQuestMember member = found.get();
 
         // 2. 기여분을 계산하고 멤버 행에 반영한다. 판정은 도메인이 한다.
-        ContributionResult result = member.apply(snapshot, partyQuest.getMetric());
+        ContributionResult result = member.apply(snapshot, partyQuest.getMetric(), partyQuest.activityDate());
         if (result instanceof ContributionResult.Ignored ignored) {
             log.debug("파티 기여 무시. partyQuestId={} userId={} reason={}",
                     partyQuestId, userId, ignored.reason());

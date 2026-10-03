@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 // 파티 퀘스트에 참여한 멤버 한 사람의 진행 상태다.
@@ -73,8 +74,18 @@ public class PartyQuestMember extends BaseCreatedUpdatedEntity {
 
     // 건강 데이터 스냅샷 하나를 이 멤버에게 반영한다.
     // 위에서 걸린 것은 아래를 보지 않는다.
-    public ContributionResult apply(Snapshot snapshot, Metric metric) {
+    // dlq에서 이벤트 누락된게 재처리될때 여기서 막는다.
+    public ContributionResult apply(Snapshot snapshot, Metric metric, LocalDate questDate) {
         Instant measuredAt = snapshot.measuredAt();
+
+        // 0. 퀘스트 날짜의 스냅샷만 받는다.
+        // 조회는 기한 이전인지만 보므로, 생성 뒤에 늦게 도착한 어제 이벤트도 여기까지 온다.
+        // 워터마크가 비어 있는 동안에는 1 번은 어제날짜를 거르지 못한다.
+        // 0번을 추가하지않으면 기준이 없는 멤버는 어제 누적값이 기준이 되어 오늘 기여가 계속 음수가 되고,
+        // 기준이 있는 멤버는 어제 누적값 빼기 오늘 기준이 기여로 잡혀 공짜 완료가 난다.
+        if (!snapshot.activityDate().equals(questDate)) {
+            return new ContributionResult.Ignored(ContributionResult.Reason.OTHER_DAY);
+        }
 
         // 1. 중복 도착과 순서 역전을 한 조건으로 막는다.
         // 이미 본 시각과 같은 것도 막아야 한다. 중복이란 정확히 그 경우다.
@@ -102,6 +113,7 @@ public class PartyQuestMember extends BaseCreatedUpdatedEntity {
 
         // 4. 공유 카운터에 더할 값은 새 기여분과 이전 기여분의 차이다.
         // 이 차이를 먼저 구해두지 않으면 공유 카운터를 갱신할 수가 없다.
+        // 정확이 이부분이 dlq를 도입할때 재처리하는 부분을 막는다.
         int counterDelta = newContributed - contributedVal;
 
         // 5. 멤버 행은 대입이다. 더하기가 아니다.

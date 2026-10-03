@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.HashSet;
@@ -147,7 +148,7 @@ public class PartyQuestCreateService {
         ));
 
         List<PartyQuestMember> members = partyQuestMemberRepository.saveAll(
-                enroll(partyQuest.getPartyQuestId(), memberIds, metric));
+                enroll(partyQuest.getPartyQuestId(), memberIds, metric, now.atZone(KST).toLocalDate()));
 
         // 파티장은 이 요청의 응답으로 결과를 받지만 나머지 멤버는 시작을 알 방법이 없다.
         // 봉투의 userId 로 파티장을 쓴다. 이 값이 발행 파티션을 정하는데,
@@ -175,7 +176,7 @@ public class PartyQuestCreateService {
     // 한 번도 동기화한 적 없는 유저는 스냅샷이 없어서 비워둔다.
     // 그 멤버 하나 때문에 파티 전체의 퀘스트 생성을 막는 것은 과하다.
     // 비워두면 그 멤버의 첫 이벤트가 도착할 때 확정된다.
-    private List<PartyQuestMember> enroll(UUID partyQuestId, List<UUID> memberIds, Metric metric) {
+    private List<PartyQuestMember> enroll(UUID partyQuestId, List<UUID> memberIds, Metric metric, LocalDate today) {
         Map<UUID, UserLatestSnapshot> snapshots = userLatestSnapshotRepository
                 .findAllByUserIds(memberIds).stream()
                 .collect(Collectors.toMap(UserLatestSnapshot::getUserId, Function.identity()));
@@ -185,15 +186,22 @@ public class PartyQuestCreateService {
                         UUID.randomUUID(),
                         partyQuestId,
                         userId,
-                        baselineOf(snapshots.get(userId), metric)))
+                        baselineOf(snapshots.get(userId), metric, today)))
                 .toList();
     }
 
     // 스냅샷이 없으면 0 이 아니라 비어 있는 값을 준다.
     // 0 으로 두면 그 유저가 오늘 이미 걸어둔 활동이 통째로 기여로 잡혀서,
     // 목표가 작으면 퀘스트가 시작하자마자 완료되고 XP 가 공짜로 나간다.
-    private static Integer baselineOf(UserLatestSnapshot snapshot, Metric metric) {
-        if (snapshot == null) {
+    //
+    // 스냅샷이 있어도 오늘 것이 아니면 없는 것과 같이 다룬다.
+    // 최신 스냅샷은 오늘 아직 동기화하지 않은 유저라면 어제 밤 값이다.
+    // 어제 누적값을 기준으로 잡으면 오늘 누적값은 0 부터 다시 오르므로
+    // 그 값을 넘을 때까지 기여가 음수로 무시되고, 하루짜리 퀘스트라 대개 끝까지 완료되지 않는다.
+    // 개인 퀘스트 수락의 DATE_MISMATCH 와 같은 이유인데, 여기서는 거절하지 않는다.
+    // 멤버 한 사람의 스냅샷이 낡았다는 이유로 파티 전체의 생성을 막는 것은 과하다.
+    private static Integer baselineOf(UserLatestSnapshot snapshot, Metric metric, LocalDate today) {
+        if (snapshot == null || !snapshot.getActivityDate().equals(today)) {
             return null;
         }
         return snapshot.toSnapshot().valueOf(metric);
