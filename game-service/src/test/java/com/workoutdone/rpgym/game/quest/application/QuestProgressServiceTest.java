@@ -148,6 +148,19 @@ class QuestProgressServiceTest {
     }
 
     @Test
+    @DisplayName("수락 직후 늦게 온 어제 스냅샷으로는 XP도 이벤트도 없다")
+    void 늦게_온_어제_스냅샷으로는_보상이_없다() {
+        // 어제 KST 23:30. 반영하면 60 - 31 = 29 로 목표 20 을 넘는다
+        Snapshot yesterday = new Snapshot(DATE.minusDays(1), Instant.parse("2026-08-27T14:30:00Z"), 0, 60, 0);
+
+        Optional<ApplyResult> result = service.apply(USER_ID, yesterday);
+
+        assertInstanceOf(ApplyResult.Ignored.class, result.orElseThrow());
+        verify(xpGrantService, never()).grant(any(), any(), any(), anyInt(), any());
+        verify(outboxRecorder, never()).append(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("활성 Quest가 없어도 스냅샷은 저장된다")
     void 활성_Quest가_없어도_스냅샷은_저장된다() {
         when(questRepository.findActiveByUserId(eq(USER_ID), any())).thenReturn(Optional.empty());
