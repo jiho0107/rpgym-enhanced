@@ -173,6 +173,25 @@ class PartyQuestCreateServiceTest {
     }
 
     @Test
+    @DisplayName("최신 스냅샷이 어제 것이면 기준값을 비워둔다 — 어제 누적값을 쓰면 오늘 기여가 계속 음수라 완료되지 않는다")
+    void 어제_스냅샷이면_기준값을_비워둔다() {
+        LocalDate yesterday = LocalDate.now(KST).minusDays(1);
+        when(snapshotRepository.findAllByUserIds(any())).thenReturn(List.of(
+                snapshotOf(OWNER, 3000),
+                // 어제 밤 마지막 동기화 뒤로 오늘은 아직 한 번도 동기화하지 않았다
+                UserLatestSnapshot.create(MEMBER_B, new Snapshot(
+                        yesterday, yesterday.atTime(23, 30).atZone(KST).toInstant(), 8000, 0, 0))));
+
+        PartyQuestCreation creation = service.create(validCommand());
+
+        // 그 멤버 때문에 파티 전체의 생성을 막지 않는다
+        assertInstanceOf(PartyQuestCreation.Created.class, creation);
+        List<PartyQuestMember> members = savedMembers();
+        assertEquals(3000, members.get(0).getBaselineVal());
+        assertNull(members.get(1).getBaselineVal());
+    }
+
+    @Test
     @DisplayName("기한은 오늘 한국 시간 자정 직전이다 — 누적값이 자정에 0으로 돌아가기 때문이다")
     void 기한은_오늘_자정_직전이다() {
         service.create(validCommand());

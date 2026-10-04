@@ -156,8 +156,18 @@ public class Quest extends BaseCreatedUpdatedEntity {
         // 2. 중복 도착과 순서 역전을 한 조건으로 막는다(이미 본 시각 이하의 스냅샷)
         // !isAfter(x) 는 "x 이하"다. '미만'으로 쓰면 같은 measuredAt 재수신이 통과하는데,
         // 중복이란 정확히 그 경우다. 여기가 뚫리면 XP가 두 번 지급된다.
-        // lastAppliedMeasuredAt이 null이면 첫 이벤트이므로 비교 없이 통과시킨다.
-        if (lastAppliedMeasuredAt != null && !measuredAt.isAfter(lastAppliedMeasuredAt)) {
+        // lastAppliedMeasuredAt이 null이면 첫 이벤트이므로 baseline 시각과 비교한다.
+        // 비교 없이 통과시키면 수락 직후 늦게 온 어제 이벤트가 어제 누적값 - 오늘 baseline 으로
+        // 달성분을 만들어 공짜 완료가 난다. baseline 은 수락 시 오늘 스냅샷인지 대조했으므로
+        // 어제 이벤트는 항상 baseline 시각보다 이르다.
+        // 게임서비스의 정합성은 이 워터마크가 책임 진다고해도 과언이 아니다.
+        // 마지막으로 딱 한문 장 정리하자면 어제온 퀘스트가 올때 원래 코드는 마지막에 쟀던 데이터가
+        // null이면 통과였음. 근데 생각해보니 하루치 퀘스트만 적용되는데 23:59:59초에 유저가 수락을 눌러서
+        // 퀘스트 수락이 00:00분에 되면 어제 활동분 기준으로 퀘스트 판정이 됨
+        // 그럼 오늘에 이미 N보 걸은 셈이되니깐 공짜 xp가 나감
+        // 그걸 워터마크로
+        Instant watermark = lastAppliedMeasuredAt != null ? lastAppliedMeasuredAt : baselineMeasuredAt;
+        if (!measuredAt.isAfter(watermark)) {
             return new ApplyResult.Ignored(ApplyResult.Reason.STALE_SNAPSHOT);
         }
 
@@ -165,7 +175,9 @@ public class Quest extends BaseCreatedUpdatedEntity {
         // Instant.now()가 아니라 measuredAt으로 판정한다. 컨슈머가 죽었다 자정 넘어
         // 살아나도, 만료 전에 목표를 채운 유저는 보상을 받아야 한다.
         // 같은 이벤트를 언제 처리하든 결과가 같아야 멱등이다.
-        if (measuredAt.isAfter(expiredAt)) {
+        // 유효 구간은 [baseline, expiredAt) 이다.
+        // 퀘스트만 다른 파티퀘스트와 달리 조회 기준이 달라서 통일함
+        if (!measuredAt.isBefore(expiredAt)) {
             return new ApplyResult.Ignored(ApplyResult.Reason.AFTER_EXPIRY);
         }
 
@@ -206,7 +218,7 @@ public class Quest extends BaseCreatedUpdatedEntity {
 
 
     public QuestStatus displayStatus(Instant at) {
-        if (status == QuestStatus.ACTIVE && at.isAfter(expiredAt)) {
+        if (status == QuestStatus.ACTIVE && !at.isBefore(expiredAt)) {
             return QuestStatus.EXPIRED;
         }
         return status;

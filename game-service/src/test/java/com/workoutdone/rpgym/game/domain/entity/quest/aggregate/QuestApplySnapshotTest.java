@@ -116,6 +116,32 @@ class QuestApplySnapshotTest {
     }
 
     @Test
+    @DisplayName("수락 직후 늦게 온 어제 스냅샷은 무시된다 — 어제 누적값 빼기 오늘 baseline 이 공짜 달성이 된다")
+    void 수락_직후_어제_스냅샷은_무시된다() {
+        Quest quest = activeQuest();
+
+        // 어제 KST 23:30. 누적값 60 - baseline 31 = 29 로 목표 20 을 넘는다
+        ApplyResult result = quest.applySnapshot(
+                new Snapshot(DATE.minusDays(1), Instant.parse("2026-08-27T14:30:00Z"), 0, 60, 0));
+
+        assertIgnored(result, ApplyResult.Reason.STALE_SNAPSHOT);
+        assertEquals(QuestStatus.ACTIVE, quest.getStatus());
+        assertNull(quest.getLastAppliedMeasuredAt());
+        assertNull(quest.getLastCumulativeVal());
+    }
+
+    @Test
+    @DisplayName("수락 직후 baseline 시각보다 이른 스냅샷은 무시된다 — baseline 시각이 첫 워터마크다")
+    void baseline_시각_이전_스냅샷은_무시된다() {
+        Quest quest = activeQuest();
+
+        ApplyResult result = quest.applySnapshot(snapshot("2026-08-28T01:00:00Z", 28)); // KST 10:00, baseline 10:30
+
+        assertIgnored(result, ApplyResult.Reason.STALE_SNAPSHOT);
+        assertNull(quest.getLastAppliedMeasuredAt());
+    }
+
+    @Test
     @DisplayName("baseline 이전 활동은 인정되지 않는다 — 소급 완료 방지")
     void baseline_이전_활동은_인정되지_않는다() {
         Quest quest = activeQuest();
@@ -169,6 +195,17 @@ class QuestApplySnapshotTest {
 
         assertIgnored(quest.applySnapshot(s), ApplyResult.Reason.AFTER_EXPIRY);
         assertEquals(QuestStatus.ACTIVE, quest.getStatus()); // 완료되지 않는다 = 보상도 없다
+    }
+
+    @Test
+    @DisplayName("만료 시각과 같은 시각의 스냅샷은 만료로 본다 — 조회 쿼리(expiredAt > at)와 경계가 같다")
+    void 만료_시각_정각의_스냅샷은_만료로_본다() {
+        Quest quest = activeQuest();
+
+        Snapshot s = snapshot("2026-08-28T14:59:59Z", 60); // KST 23:59:59 = EXPIRES_AT
+
+        assertIgnored(quest.applySnapshot(s), ApplyResult.Reason.AFTER_EXPIRY);
+        assertEquals(QuestStatus.ACTIVE, quest.getStatus());
     }
 
     @Test

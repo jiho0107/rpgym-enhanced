@@ -80,7 +80,7 @@ class PartyQuestProgressServiceTest {
 
         // 기준 3000 에 이미 1800 을 쌓아둔 상태
         myRow = PartyQuestMember.join(UUID.randomUUID(), PARTY_QUEST_ID, USER_ID, 3000);
-        myRow.apply(new Snapshot(DATE, Instant.parse("2026-09-21T01:00:00Z"), 4800, 0, 0), Metric.STEPS);
+        myRow.apply(new Snapshot(DATE, Instant.parse("2026-09-21T01:00:00Z"), 4800, 0, 0), Metric.STEPS, DATE);
 
         when(partyQuestRepository.findActiveByUserId(eq(USER_ID), any()))
                 .thenReturn(Optional.of(partyQuest));
@@ -149,6 +149,27 @@ class PartyQuestProgressServiceTest {
         assertInstanceOf(ContributionResult.Ignored.class, result.orElseThrow());
         verify(memberRepository, never()).save(any());
         verify(partyQuestRepository, never()).addToCurrentValue(any(), anyInt());
+        verifyNoInteractions(xpGrantService, outboxRecorder);
+    }
+
+    @Test
+    @DisplayName("퀘스트 날짜가 아닌 스냅샷은 저장도 카운터 갱신도 하지 않는다 — 늦게 온 어제 이벤트가 공짜 완료를 만든다")
+    void 다른_날_스냅샷은_아무것도_하지_않는다() {
+        // 생성 뒤 아직 이벤트를 하나도 받지 않아 워터마크가 비어 있는 멤버다. 중복 검사로는 걸러지지 않는다.
+        PartyQuestMember fresh = PartyQuestMember.join(UUID.randomUUID(), PARTY_QUEST_ID, USER_ID, 3000);
+        when(memberRepository.findByPartyQuestIdAndUserId(PARTY_QUEST_ID, USER_ID))
+                .thenReturn(Optional.of(fresh));
+        // 어제 밤 누적값이다. 반영하면 8000 - 3000 = 5000 이 기여로 잡혀 목표 4000 을 넘는다
+        Snapshot yesterday = new Snapshot(
+                DATE.minusDays(1), Instant.parse("2026-09-20T14:30:00Z"), 8000, 0, 0);
+
+        Optional<ContributionResult> result = service.apply(USER_ID, yesterday);
+
+        assertInstanceOf(ContributionResult.Ignored.class, result.orElseThrow());
+        assertEquals(0, fresh.getContributedVal());
+        verify(memberRepository, never()).save(any());
+        verify(partyQuestRepository, never()).addToCurrentValue(any(), anyInt());
+        verify(partyQuestRepository, never()).claimCompletion(any(), any());
         verifyNoInteractions(xpGrantService, outboxRecorder);
     }
 

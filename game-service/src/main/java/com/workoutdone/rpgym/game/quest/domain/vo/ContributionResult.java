@@ -23,6 +23,9 @@ public sealed interface ContributionResult {
         STALE_SNAPSHOT,
         // 누적값이 baseline 보다 작다. 자정 리셋이거나 상류의 데이터 정정이다.
         // 기여분을 되돌리지 않고 무시한다. 다음 스냅샷이 올바른 누적값을 다시 실어온다.
-        NEGATIVE_DELTA
+        NEGATIVE_DELTA,
+        // 퀘스트 날짜가 아닌 날의 스냅샷이다. 생성 뒤에 늦게 도착한 어제 이벤트가 여기 걸린다.
+        // 누적값은 날마다 0 부터 다시 쌓이므로 다른 날 값은 이 퀘스트의 기준과 뺄 수 없다.
+        OTHER_DAY
     }
 }
