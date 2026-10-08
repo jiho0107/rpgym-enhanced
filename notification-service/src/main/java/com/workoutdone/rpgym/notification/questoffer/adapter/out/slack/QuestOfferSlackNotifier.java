@@ -24,6 +24,8 @@ import org.springframework.stereotype.Component;
 public class QuestOfferSlackNotifier {
 
     private static final String FALLBACK_TEXT = "오늘의 Quest 제안이 도착했어요";
+    private static final String HEADER_TEXT = "⚔️ 오늘의 퀘스트가 도착했어요";
+    private static final String GUIDE_TEXT = "수락하면 오늘의 퀘스트로 등록돼요.";
 
     private final SlackApiClient slackApiClient;
     private final ObjectMapper objectMapper;
@@ -38,11 +40,24 @@ public class QuestOfferSlackNotifier {
 
         ArrayNode blocks = objectMapper.createArrayNode();
 
+        // header 블록은 plain_text만 지원한다 (mrkdwn 불가)
+        ObjectNode header = blocks.addObject();
+        header.put("type", "header");
+        header.putObject("text")
+                .put("type", "plain_text")
+                .put("text", HEADER_TEXT);
+
         ObjectNode section = blocks.addObject();
         section.put("type", "section");
         section.putObject("text")
                 .put("type", "mrkdwn")
                 .put("text", "*" + data.title() + "*");
+
+        ObjectNode context = blocks.addObject();
+        context.put("type", "context");
+        context.putArray("elements").addObject()
+                .put("type", "mrkdwn")
+                .put("text", GUIDE_TEXT);
 
         ObjectNode actions = blocks.addObject();
         actions.put("type", "actions");

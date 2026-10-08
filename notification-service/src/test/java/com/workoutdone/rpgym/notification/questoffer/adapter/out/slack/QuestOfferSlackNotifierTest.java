@@ -60,12 +60,20 @@ class QuestOfferSlackNotifierTest {
 
         JsonNode blocks = new ObjectMapper().readTree(blocksJsonCaptor.getValue());
 
-        assertThat(blocks.get(0).get("type").asText()).isEqualTo("section");
-        assertThat(blocks.get(0).get("text").get("text").asText()).isEqualTo("*20분 산책하기*");
-        // 보상(XP) 정보는 이 시점엔 없는 값이라 카드에 나타나면 안 된다.
-        assertThat(blocks.get(0).get("text").get("text").asText()).doesNotContain("XP");
+        assertThat(blocks.get(0).get("type").asText()).isEqualTo("header");
+        assertThat(blocks.get(0).get("text").get("type").asText()).isEqualTo("plain_text");
+        assertThat(blocks.get(0).get("text").get("text").asText()).isEqualTo("⚔️ 오늘의 퀘스트가 도착했어요");
 
-        JsonNode elements = blocks.get(1).get("elements");
+        assertThat(blocks.get(1).get("type").asText()).isEqualTo("section");
+        assertThat(blocks.get(1).get("text").get("text").asText()).isEqualTo("*20분 산책하기*");
+        // 보상(XP) 정보는 이 시점엔 없는 값이라 카드에 나타나면 안 된다.
+        assertThat(blocks.get(1).get("text").get("text").asText()).doesNotContain("XP");
+
+        assertThat(blocks.get(2).get("type").asText()).isEqualTo("context");
+        assertThat(blocks.get(2).get("elements").get(0).get("text").asText())
+                .isEqualTo("수락하면 오늘의 퀘스트로 등록돼요.");
+
+        JsonNode elements = blocks.get(3).get("elements");
         assertThat(elements.get(0).get("action_id").asText()).isEqualTo("quest_offer_accept");
         assertThat(elements.get(0).get("value").asText()).isEqualTo(SUGGESTION_ID.toString());
         assertThat(elements.get(1).get("action_id").asText()).isEqualTo("quest_offer_reject");
