@@ -23,8 +23,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class QuestOfferSlackNotifier {
 
-    private static final String FALLBACK_TEXT = "오늘의 Quest 제안이 도착했어요";
     private static final String HEADER_TEXT = "⚔️ 오늘의 퀘스트가 도착했어요";
+    // 푸시 알림 미리보기도 카드 헤더와 같은 문구로 보이게 한다
+    private static final String FALLBACK_TEXT = HEADER_TEXT;
     private static final String GUIDE_TEXT = "수락하면 오늘의 퀘스트로 등록돼요.";
 
     private final SlackApiClient slackApiClient;

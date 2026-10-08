@@ -79,6 +79,6 @@ class QuestOfferSlackNotifierTest {
         assertThat(elements.get(1).get("action_id").asText()).isEqualTo("quest_offer_reject");
         assertThat(elements.get(1).get("value").asText()).isEqualTo(SUGGESTION_ID.toString());
 
-        assertThat(fallbackTextCaptor.getValue()).isEqualTo("오늘의 Quest 제안이 도착했어요");
+        assertThat(fallbackTextCaptor.getValue()).isEqualTo("⚔️ 오늘의 퀘스트가 도착했어요");
     }
 }
