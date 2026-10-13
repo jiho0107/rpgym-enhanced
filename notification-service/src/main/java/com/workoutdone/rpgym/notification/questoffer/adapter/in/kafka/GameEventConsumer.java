@@ -109,7 +109,7 @@ public class GameEventConsumer {
             return;
         }
 
-        Optional<UUID> offerId = questOfferService.prepareForSend(data.suggestionId(), envelope.userId());
+        Optional<UUID> offerId = questOfferService.prepareForSend(data.suggestionId(), envelope.userId(), data.title());
         if (offerId.isEmpty()) { //이미 처리된 제안인 경우
             return;
         }

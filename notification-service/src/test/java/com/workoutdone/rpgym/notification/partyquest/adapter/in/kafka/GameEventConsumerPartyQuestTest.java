@@ -139,7 +139,7 @@ class GameEventConsumerPartyQuestTest {
     @Test
     @DisplayName("QUEST_SUGGESTED 는 기존처럼 일일 Quest 경로로 처리되고 파티 퀘스트 핸들러는 호출되지 않는다")
     void questSuggestedDoesNotReachPartyQuestHandler() {
-        when(questOfferService.prepareForSend(any(), any())).thenReturn(Optional.empty());
+        when(questOfferService.prepareForSend(any(), any(), any())).thenReturn(Optional.empty());
 
         consumer.consume(envelope("QUEST_SUGGESTED", """
                 {
@@ -151,7 +151,7 @@ class GameEventConsumerPartyQuestTest {
                 }
                 """));
 
-        verify(questOfferService).prepareForSend(any(), any());
+        verify(questOfferService).prepareForSend(any(), any(), any());
         verifyNoInteractions(partyQuestCreatedHandler);
     }
 }

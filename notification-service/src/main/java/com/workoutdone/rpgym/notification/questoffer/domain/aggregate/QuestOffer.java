@@ -1,6 +1,8 @@
 package com.workoutdone.rpgym.notification.questoffer.domain.aggregate;
 
 import com.workoutdone.rpgym.common.entity.BaseCreatedEntity;
+import com.workoutdone.rpgym.notification.questoffer.domain.QuestOfferAction;
+import com.workoutdone.rpgym.notification.questoffer.domain.QuestOfferCloseReason;
 import com.workoutdone.rpgym.notification.questoffer.domain.QuestOfferStatus;
 
 import jakarta.persistence.Column;
@@ -15,6 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -62,15 +65,50 @@ public class QuestOffer extends BaseCreatedEntity {
     @Column(name = "version", nullable = false)
     private Long version;
 
+    /** 카드를 상태별로 다시 그릴 때 쓴다. chat.update는 메시지 전체를 다시 보내야 해서 제목을 알아야 한다. */
+    @Column(name = "title", nullable = false, length = 100)
+    private String title;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "requested_action", length = 20)
+    private QuestOfferAction requestedAction;
+
+    /**
+     * 사용자가 실제로 누른 카드의 위치(클릭 payload의 container).
+     * markSent가 실패한 뒤 Kafka 재시도로 카드가 두 장 나갈 수 있고, 그러면 slack_message_ts에는 마지막 카드의 ts만 남는다.
+     * 누른 카드를 정확히 고치려면 클릭 시점의 값을 따로 남겨야 한다.
+     */
+    @Column(name = "clicked_channel_id", length = 100)
+    private String clickedChannelId;
+
+    @Column(name = "clicked_message_ts", length = 30)
+    private String clickedMessageTs;
+
+    /** chat.update 실패 시 보조 갱신 수단. Slack 제한: 30분 안에 최대 5회. */
+    @Column(name = "response_url", columnDefinition = "TEXT")
+    private String responseUrl;
+
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount;
+
+    /** 스케줄러가 이 행을 처리할 수 있는 시각. 선점 시에는 lease 만료 시각으로 쓴다. */
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "close_reason", length = 30)
+    private QuestOfferCloseReason closeReason;
+
     /**
      * 발송을 "시도했다"는 기록만 먼저 남긴다.
      * slack_dm_channel_id / slack_message_ts / sent_at은 Slack에 실제로 성공해야만 알 수 있는 값이라 전부 NULL로 시작
      */
-    public static QuestOffer pending(UUID id, UUID suggestionId, UUID userId) {
+    public static QuestOffer pending(UUID id, UUID suggestionId, UUID userId, String title) {
         QuestOffer offer = new QuestOffer();
         offer.id = id;
         offer.suggestionId = suggestionId;
         offer.userId = userId;
+        offer.title = Objects.requireNonNull(title, "title");
         offer.status = QuestOfferStatus.PENDING;
         return offer;
     }

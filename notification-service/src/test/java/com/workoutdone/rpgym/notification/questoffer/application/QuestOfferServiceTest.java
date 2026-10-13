@@ -30,6 +30,7 @@ class QuestOfferServiceTest {
 
     private static final UUID SUGGESTION_ID = UUID.randomUUID();
     private static final UUID USER_ID = UUID.randomUUID();
+    private static final String TITLE = "20분 산책하기";
 
     @Mock
     private QuestOfferRepository questOfferRepository;
@@ -47,7 +48,7 @@ class QuestOfferServiceTest {
         when(questOfferRepository.findBySuggestionId(SUGGESTION_ID)).thenReturn(Optional.empty());
         when(questOfferRepository.save(any())).thenAnswer(call -> call.getArgument(0));
 
-        Optional<UUID> offerId = service.prepareForSend(SUGGESTION_ID, USER_ID);
+        Optional<UUID> offerId = service.prepareForSend(SUGGESTION_ID, USER_ID, TITLE);
 
         ArgumentCaptor<QuestOffer> captor = ArgumentCaptor.forClass(QuestOffer.class);
         verify(questOfferRepository).save(captor.capture());
@@ -57,15 +58,16 @@ class QuestOfferServiceTest {
         assertThat(saved.getSuggestionId()).isEqualTo(SUGGESTION_ID);
         assertThat(saved.getUserId()).isEqualTo(USER_ID);
         assertThat(saved.getStatus()).isEqualTo(QuestOfferStatus.PENDING);
+        assertThat(saved.getTitle()).isEqualTo(TITLE);
     }
 
     @Test
     @DisplayName("prepareForSend — 기존 행이 PENDING이면 그 id를 재사용한다 (직전 Slack 발송 실패 후 재시도)")
     void prepareForSendReusesExistingPendingOffer() {
-        QuestOffer existing = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID);
+        QuestOffer existing = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID, TITLE);
         when(questOfferRepository.findBySuggestionId(SUGGESTION_ID)).thenReturn(Optional.of(existing));
 
-        Optional<UUID> offerId = service.prepareForSend(SUGGESTION_ID, USER_ID);
+        Optional<UUID> offerId = service.prepareForSend(SUGGESTION_ID, USER_ID, TITLE);
 
         assertThat(offerId).contains(existing.getId());
         verify(questOfferRepository, never()).save(any());
@@ -74,11 +76,11 @@ class QuestOfferServiceTest {
     @Test
     @DisplayName("prepareForSend — 기존 행이 이미 SENT면 진짜 중복이므로 건너뛴다")
     void prepareForSendSkipsAlreadySentOffer() {
-        QuestOffer existing = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID);
+        QuestOffer existing = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID, TITLE);
         existing.markSent("D0123456789", "1732147200.000100", Instant.now());
         when(questOfferRepository.findBySuggestionId(SUGGESTION_ID)).thenReturn(Optional.of(existing));
 
-        Optional<UUID> offerId = service.prepareForSend(SUGGESTION_ID, USER_ID);
+        Optional<UUID> offerId = service.prepareForSend(SUGGESTION_ID, USER_ID, TITLE);
 
         assertThat(offerId).isEmpty();
         verify(questOfferRepository, never()).save(any());
@@ -87,7 +89,7 @@ class QuestOfferServiceTest {
     @Test
     @DisplayName("markSent — 대상 행을 찾아 Slack 발송 결과를 기록하고 SENT로 확정한다")
     void markSentUpdatesOffer() {
-        QuestOffer offer = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID);
+        QuestOffer offer = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID, TITLE);
         when(questOfferRepository.findById(offer.getId())).thenReturn(Optional.of(offer));
 
         service.markSent(offer.getId(), "D0123456789", "1732147200.000100");
@@ -111,7 +113,7 @@ class QuestOfferServiceTest {
     @Test
     @DisplayName("getBySuggestionId — 존재하면 그대로 반환한다")
     void getBySuggestionIdReturnsOffer() {
-        QuestOffer offer = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID);
+        QuestOffer offer = QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID, TITLE);
         when(questOfferRepository.findBySuggestionId(SUGGESTION_ID)).thenReturn(Optional.of(offer));
 
         QuestOffer result = service.getBySuggestionId(SUGGESTION_ID);

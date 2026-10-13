@@ -47,6 +47,7 @@ class GameEventConsumerTest {
     private static final String SLACK_ID = "U0123456789";
     private static final String SLACK_CHANNEL = "D0123456789";
     private static final String SLACK_TS = "1732147200.000100";
+    private static final String TITLE = "20분 산책하기";
 
     @Mock
     private QuestOfferService questOfferService;
@@ -91,14 +92,14 @@ class GameEventConsumerTest {
     @Test
     @DisplayName("QUEST_SUGGESTED — DB 준비 -> slackId 조회 -> Slack 발송 -> SENT 확정까지 순서대로 이어진다")
     void questSuggestedHappyPath() {
-        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID)).thenReturn(Optional.of(OFFER_ID));
+        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID, TITLE)).thenReturn(Optional.of(OFFER_ID));
         when(userServiceClient.getUserInfo(USER_ID)).thenReturn(userInfoWithSlackId(SLACK_ID));
         when(questOfferSlackNotifier.sendOffer(eq(SLACK_ID), any()))
                 .thenReturn(new SlackMessageResult(SLACK_CHANNEL, SLACK_TS));
 
         consumer.consume(questSuggestedEvent());
 
-        verify(questOfferService).prepareForSend(SUGGESTION_ID, USER_ID);
+        verify(questOfferService).prepareForSend(SUGGESTION_ID, USER_ID, TITLE);
         verify(questOfferSlackNotifier).sendOffer(eq(SLACK_ID), any());
         verify(questOfferService).markSent(OFFER_ID, SLACK_CHANNEL, SLACK_TS);
     }
@@ -159,7 +160,7 @@ class GameEventConsumerTest {
     @Test
     @DisplayName("이미 처리된 제안(prepareForSend가 empty 반환) — user-service/Slack을 부르지 않는다")
     void alreadyProcessedOfferSkipsSlackSend() {
-        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID)).thenReturn(Optional.empty());
+        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID, TITLE)).thenReturn(Optional.empty());
 
         consumer.consume(questSuggestedEvent());
 
@@ -170,7 +171,7 @@ class GameEventConsumerTest {
     @Test
     @DisplayName("slackId가 없는 유저 — PENDING 기록은 남기되 Slack은 호출하지 않는다")
     void blankSlackIdSkipsSlackSend() {
-        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID)).thenReturn(Optional.of(OFFER_ID));
+        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID, TITLE)).thenReturn(Optional.of(OFFER_ID));
         when(userServiceClient.getUserInfo(USER_ID)).thenReturn(userInfoWithSlackId(""));
 
         consumer.consume(questSuggestedEvent());
@@ -182,7 +183,7 @@ class GameEventConsumerTest {
     @Test
     @DisplayName("Slack 발송 실패 — 예외가 그대로 전파되어 Kafka가 메시지 전체를 재시도한다")
     void slackFailurePropagatesException() {
-        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID)).thenReturn(Optional.of(OFFER_ID));
+        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID, TITLE)).thenReturn(Optional.of(OFFER_ID));
         when(userServiceClient.getUserInfo(USER_ID)).thenReturn(userInfoWithSlackId(SLACK_ID));
         when(questOfferSlackNotifier.sendOffer(eq(SLACK_ID), any()))
                 .thenThrow(new SlackMessageSendException("Slack 발송 실패. error=timeout"));
@@ -196,7 +197,7 @@ class GameEventConsumerTest {
     @Test
     @DisplayName("markSent이 일시적으로 실패해도 로컬 재시도로 결국 성공한다")
     void markSentTransientFailureIsRetried() {
-        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID)).thenReturn(Optional.of(OFFER_ID));
+        when(questOfferService.prepareForSend(SUGGESTION_ID, USER_ID, TITLE)).thenReturn(Optional.of(OFFER_ID));
         when(userServiceClient.getUserInfo(USER_ID)).thenReturn(userInfoWithSlackId(SLACK_ID));
         when(questOfferSlackNotifier.sendOffer(eq(SLACK_ID), any()))
                 .thenReturn(new SlackMessageResult(SLACK_CHANNEL, SLACK_TS));

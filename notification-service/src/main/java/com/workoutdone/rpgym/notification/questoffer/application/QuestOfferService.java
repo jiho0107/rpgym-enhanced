@@ -33,7 +33,7 @@ public class QuestOfferService {
      * @return 발송을 진행해야 하면 quest_offers의 id, 이미 처리된 제안이라 건너뛰어야 하면 empty
      */
     @Transactional
-    public Optional<UUID> prepareForSend(UUID suggestionId, UUID userId) {
+    public Optional<UUID> prepareForSend(UUID suggestionId, UUID userId, String title) {
         Optional<QuestOffer> existing = questOfferRepository.findBySuggestionId(suggestionId);
         if (existing.isPresent()) {
             QuestOffer offer = existing.get();
@@ -47,7 +47,7 @@ public class QuestOfferService {
             return Optional.of(offer.getId());
         }
 
-        QuestOffer created = questOfferRepository.save(QuestOffer.pending(UUID.randomUUID(), suggestionId, userId));
+        QuestOffer created = questOfferRepository.save(QuestOffer.pending(UUID.randomUUID(), suggestionId, userId, title));
         return Optional.of(created.getId());
     }
 

@@ -82,7 +82,7 @@ class SlackInteractionControllerTest {
     }
 
     private QuestOffer sentOffer() {
-        return QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID);
+        return QuestOffer.pending(UUID.randomUUID(), SUGGESTION_ID, USER_ID, "20분 산책하기");
     }
 
     @Test
