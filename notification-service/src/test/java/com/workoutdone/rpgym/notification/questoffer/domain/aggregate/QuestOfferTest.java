@@ -81,6 +81,34 @@ class QuestOfferTest {
     }
 
     @Test
+    @DisplayName("markSent() — PENDING에서 클릭이 먼저 접수됐다면 상태는 그대로 두고 비어 있는 발송 정보만 채운다")
+    void markSentAfterClickKeepsStatusAndFillsEmptySlackFields() {
+        QuestOffer offer = QuestOffer.pending(ID, SUGGESTION_ID, USER_ID, TITLE);
+        offer.requestDecision(QuestOfferAction.ACCEPT, DM_CHANNEL, CLICKED_TS, RESPONSE_URL, NOW);
+
+        offer.markSent(DM_CHANNEL, SENT_TS, NOW.plusSeconds(5));
+
+        assertThat(offer.getStatus()).isEqualTo(QuestOfferStatus.PROCESSING);
+        assertThat(offer.getSlackMessageTs()).isEqualTo(SENT_TS);
+        assertThat(offer.getSentAt()).isEqualTo(NOW.plusSeconds(5));
+    }
+
+    @Test
+    @DisplayName("markSent() — 이미 최종 상태이고 발송 정보도 있으면 아무것도 바꾸지 않는다")
+    void markSentOnFinishedOfferDoesNothing() {
+        QuestOffer offer = processingOffer(QuestOfferAction.ACCEPT);
+        offer.claim(NOW, LEASE);
+        offer.complete();
+
+        offer.markSent("D9999999999", "1732149999.000999", NOW.plusSeconds(60));
+
+        assertThat(offer.getStatus()).isEqualTo(QuestOfferStatus.ACCEPTED);
+        assertThat(offer.getSlackDmChannelId()).isEqualTo(DM_CHANNEL);
+        assertThat(offer.getSlackMessageTs()).isEqualTo(SENT_TS);
+        assertThat(offer.getSentAt()).isEqualTo(NOW);
+    }
+
+    @Test
     @DisplayName("requestDecision() — SENT에서 클릭을 접수하면 PROCESSING으로 전이하고 클릭 정보를 기록한다")
     void requestDecisionFromSent() {
         QuestOffer offer = sentOffer();

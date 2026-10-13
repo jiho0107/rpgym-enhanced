@@ -124,11 +124,18 @@ public class QuestOffer extends BaseCreatedEntity {
      * Slack 발송 성공을 기록한다.
      * "발송 시도 기록(PENDING INSERT)"과는 별도 트랜잭션에서 호출돼야 한다
      * -- Slack 호출을 그 사이에 두는 이유는 QuestOfferService 쪽 주석에 있다.
+     *
+     * PENDING일 때만 SENT로 바꾼다. Kafka 재시도의 markSent가 늦게 들어왔을 때 이미 클릭이 접수돼 있으면
+     * (PROCESSING 이상) 상태를 SENT로 되돌리면 안 된다 -- 그 경우엔 비어 있는 발송 정보만 채운다.
      */
     public void markSent(String slackDmChannelId, String slackMessageTs, Instant sentAt) {
+        if (status == QuestOfferStatus.PENDING) {
+            this.status = QuestOfferStatus.SENT;
+        } else if (this.slackMessageTs != null) {
+            return;
+        }
         this.slackDmChannelId = slackDmChannelId;
         this.slackMessageTs = slackMessageTs;
-        this.status = QuestOfferStatus.SENT;
         this.sentAt = sentAt;
     }
 
