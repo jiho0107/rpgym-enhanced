@@ -19,13 +19,22 @@ public class SlackClientConfig {
     private static final int HTTP_CALL_TIMEOUT_MILLIS = 3000; //호출 전체(연결+요청 전송+응답 수신을 다 합쳐서) 시간
 
     /*
+    MethodsClient(Bot Token 기반 Web API)와 response_url 전송(Slack.send)이 같은 타임아웃 설정을 쓰도록
+    Slack 인스턴스 자체를 하나만 만들어 공유한다.
+     */
+    @Bean
+    public Slack slack() {
+        SlackConfig config = new SlackConfig();
+        config.setHttpClientCallTimeoutMillis(HTTP_CALL_TIMEOUT_MILLIS);
+        return Slack.getInstance(config);
+    }
+
+    /*
     Slack Java SDK를 쓰려면 Bot Token을 들고 있는 MethodsClient 객체가 필요한데
     애플리케이션 전체에서 하나만 만들어서(싱글톤) 재사용하기 위해 @Bean으로 등록
      */
     @Bean
-    public MethodsClient slackMethodsClient(@Value("${rpgym.slack.bot-token}") String botToken) {
-        SlackConfig config = new SlackConfig();
-        config.setHttpClientCallTimeoutMillis(HTTP_CALL_TIMEOUT_MILLIS);
-        return Slack.getInstance(config).methods(botToken);
+    public MethodsClient slackMethodsClient(Slack slack, @Value("${rpgym.slack.bot-token}") String botToken) {
+        return slack.methods(botToken);
     }
 }

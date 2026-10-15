@@ -39,7 +39,8 @@ class PartyQuestSlackNotifierSmokeTest {
         String botToken = System.getenv("SLACK_BOT_TOKEN");
         String slackUserId = System.getenv("SLACK_TEST_USER_ID");
 
-        SlackApiClient slackApiClient = new SlackApiClient(Slack.getInstance().methods(botToken));
+        Slack slack = Slack.getInstance();
+        SlackApiClient slackApiClient = new SlackApiClient(slack.methods(botToken), slack, new ObjectMapper());
         PartyQuestSlackNotifier notifier = new PartyQuestSlackNotifier(slackApiClient, new ObjectMapper());
 
         PartyQuestCreatedData data = new PartyQuestCreatedData(
