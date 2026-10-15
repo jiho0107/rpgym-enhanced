@@ -98,7 +98,7 @@ public class QuestOffer extends BaseCreatedEntity {
     @Column(name = "attempt_count", nullable = false)
     private int attemptCount;
 
-    /** 스케줄러가 이 행을 처리할 수 있는 시각. 선점 시에는 lease 만료 시각으로 쓴다. */
+    /** 스케줄러가 이 행을 처리할 수 있는 시각. 선점 시에는 lease 만료 시각(현재 시각 + 30초)으로 쓴다. */
     @Column(name = "next_attempt_at")
     private Instant nextAttemptAt;
 
@@ -142,8 +142,11 @@ public class QuestOffer extends BaseCreatedEntity {
     /**
      * Slack 버튼 클릭을 접수한다. 사용자가 카드를 눌렀다면 Slack 발송은 실제로 성공한 것이므로
      * markSent가 기록되지 못한 PENDING에서도 접수한다.
+     * PENDING/SENT 일 때만 PROCESSING 으로 바꾸고 클릭 정보를 기록한 뒤 true 를 반환하고,
+     * 그 밖의 상태(중복 클릭)는 아무것도 바꾸지 않고 false를 반환함.
      *
-     * @return 접수했으면 true. 이미 접수/처리된 제안이면(중복 클릭) 아무것도 바꾸지 않고 false
+     * @return 접수했으면 true.
+     *         이미 접수/처리된 제안이면(중복 클릭) 아무것도 바꾸지 않고 false
      *         -- 첫 클릭의 카드 위치를 덮어쓰면 처리 결과가 엉뚱한 카드에 표시된다.
      */
     public boolean requestDecision(QuestOfferAction action, String clickedChannelId, String clickedMessageTs,
@@ -163,8 +166,10 @@ public class QuestOffer extends BaseCreatedEntity {
     }
 
     /**
-     * 스케줄러가 이 행을 가져갈 때 호출한다. lease 동안은 다른 인스턴스가 다시 가져가지 않고,
+     * 스케줄러가 이 행을 가져갈 때 호출한다.
+     * lease (30초)동안은 다른 인스턴스가 다시 가져가지 않고,
      * 처리 도중 서버가 죽으면 lease가 끝난 뒤 다른 인스턴스가 이어서 처리한다.
+     * 시도 횟수를 +1 하고, 다음 시도 시각을 현재 + lease(30초) 로 둔다.
      */
     public void claim(Instant now, Duration lease) {
         requireProcessing("claim");
@@ -178,7 +183,9 @@ public class QuestOffer extends BaseCreatedEntity {
         this.nextAttemptAt = nextAttemptAt;
     }
 
-    /** game-service가 사용자가 요청한 수락/거절을 반영했다. */
+    /** game-service가 사용자가 요청한 수락/거절을 반영했다.
+     *  requested_action에 따라 ACCEPTED 또는 REJECTED 로 확정함
+     */
     public void complete() {
         requireProcessing("complete");
         this.status = requestedAction == QuestOfferAction.ACCEPT
@@ -187,7 +194,9 @@ public class QuestOffer extends BaseCreatedEntity {
         this.nextAttemptAt = null;
     }
 
-    /** game-service가 처리를 확정적으로 거절했다(만료, 대체 등). 재시도해도 결과가 같다. */
+    /** game-service가 처리를 확정적으로 거절했다(만료, 대체 등). 재시도해도 결과가 같다.
+     *  status를 CLOSED 로 바꾸고 close_reason 을 기록함
+     */
     public void close(QuestOfferCloseReason reason) {
         requireProcessing("close");
         this.status = QuestOfferStatus.CLOSED;
@@ -197,8 +206,8 @@ public class QuestOffer extends BaseCreatedEntity {
 
     /**
      * 재시도를 다 써서 사용자가 다시 누를 수 있게 되돌린다.
-     * 원래 PENDING이었어도 SENT로 되돌린다 -- PENDING이면 Kafka 재시도가 카드를 또 보낼 수 있고,
-     * 사용자가 카드를 눌렀다는 건 발송이 이미 성공했다는 뜻이다.
+     * 출발 상태와 상관없이 SENT로 되돌리고, 클릭 정보는 NULL로, 시도 횟수는 0으로 초기화함.
+     * -- PENDING이면 Kafka 재시도가 카드를 또 보낼 수 있고, 사용자가 카드를 눌렀다는 건 발송이 이미 성공했다는 뜻이다.
      * respondedAt은 남겨두고 다음 클릭이 접수될 때 새 시각으로 갱신한다.
      */
     public void revertToSent() {
