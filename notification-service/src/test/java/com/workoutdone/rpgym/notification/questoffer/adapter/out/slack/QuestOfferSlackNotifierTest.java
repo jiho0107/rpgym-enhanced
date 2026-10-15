@@ -37,7 +37,7 @@ class QuestOfferSlackNotifierTest {
 
     @BeforeEach
     void setUp() {
-        notifier = new QuestOfferSlackNotifier(slackApiClient, new ObjectMapper());
+        notifier = new QuestOfferSlackNotifier(slackApiClient, new QuestOfferCards(new ObjectMapper()));
     }
 
     @Test
