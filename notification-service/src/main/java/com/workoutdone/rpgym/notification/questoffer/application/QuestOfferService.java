@@ -2,6 +2,7 @@ package com.workoutdone.rpgym.notification.questoffer.application;
 
 import com.workoutdone.rpgym.common.exception.BaseException;
 import com.workoutdone.rpgym.notification.questoffer.domain.NotificationErrorCode;
+import com.workoutdone.rpgym.notification.questoffer.domain.QuestOfferAction;
 import com.workoutdone.rpgym.notification.questoffer.domain.aggregate.QuestOffer;
 import com.workoutdone.rpgym.notification.questoffer.domain.repo.QuestOfferRepository;
 
@@ -15,7 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * quest_offers 쓰기 전용. Slack 호출은 이 클래스 밖(GameEventConsumer)에서 일어난다.
+ * quest_offers 쓰기 전용. Slack 호출은 이 클래스 밖(GameEventConsumer, SlackInteractionController)에서 일어난다.
  *
  * prepareForSend와 markSent를 하나의 트랜잭션으로 묶지 않는 이유
  * -- 그 사이에 Slack API 호출(외부 I/O)이 끼기 때문이다.
@@ -59,12 +60,24 @@ public class QuestOfferService {
     }
 
     /**
-     * Slack 버튼 클릭 처리(SlackInteractionController)에서 쓴다.
-     * slack 발송 시점에 quest_offers 테이블에 저장해둔 userId를 그대로 꺼내 쓰므로, 여기서 user-service를 다시 조회할 필요가 없다.
+     * Slack 버튼 클릭을 접수한다(SlackInteractionController).
+     * 이 메서드가 커밋된 뒤에야 컨트롤러가 Slack에 200을 준다 -- 200을 먼저 주고 저장에 실패하면 클릭이 조용히 사라진다.
+     *
+     * 같은 제안에 클릭 두 개가 동시에 들어와 둘 다 SENT로 읽었다면, 늦게 커밋하는 쪽은 @Version 충돌로
+     * ObjectOptimisticLockingFailureException이 난다. 첫 클릭의 정보를 덮어쓰지 않기 위한 것이다.
+     *
+     * @return 접수됐는지, 그리고 중복 클릭이면 눌린 카드를 고칠 때 쓸 현재 행
      */
-    @Transactional(readOnly = true)
-    public QuestOffer getBySuggestionId(UUID suggestionId) {
-        return questOfferRepository.findBySuggestionId(suggestionId)
+    @Transactional
+    public DecisionRequestResult requestDecision(UUID suggestionId, QuestOfferAction action,
+                                                 String clickedChannelId, String clickedMessageTs, String responseUrl) {
+        QuestOffer offer = questOfferRepository.findBySuggestionId(suggestionId)
                 .orElseThrow(() -> new BaseException(NotificationErrorCode.QUEST_OFFER_NOT_FOUND));
+
+        boolean accepted = offer.requestDecision(action, clickedChannelId, clickedMessageTs, responseUrl, Instant.now());
+        if (!accepted) {
+            log.info("이미 접수/처리된 제안의 중복 클릭이다. suggestionId={} status={}", suggestionId, offer.getStatus());
+        }
+        return new DecisionRequestResult(accepted, offer);
     }
 }

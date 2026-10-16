@@ -19,12 +19,6 @@ public enum NotificationErrorCode implements ErrorCode {
             "INVALID_SLACK_SIGNATURE",
             HttpStatus.UNAUTHORIZED,
             "Slack 서명 검증에 실패했습니다."
-    ),
-
-    GAME_SERVICE_CALL_FAILED(
-            "GAME_SERVICE_CALL_FAILED",
-            HttpStatus.BAD_GATEWAY,
-            "game-service 호출에 실패했습니다."
     );
 
     private final String code;
