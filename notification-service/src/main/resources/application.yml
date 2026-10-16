@@ -55,6 +55,12 @@ spring:
     template:
       observation-enabled: true #분산 추적(트레이싱) 연결용
 
+  # AsyncConfig에서 카드 갱신 전용 풀을 직접 등록하면, 기본값(auto)일 때 스프링 부트가 기본 공용 풀(applicationTaskExecutor)을 만들지 않는다.
+  # 그러면 이름 없이 붙인 @Async가 하나뿐인 카드 갱신 풀로 가서 섞인다. force면 기본 공용 풀도 계속 만들고 이름 없는 @Async는 그쪽으로 간다.
+  task:
+    execution:
+      mode: force
+
   # Spring Cloud OpenFeign 4.x부터 설정 접두사가 feign.* -> spring.cloud.openfeign.* 로 바뀌었다.
   cloud:
     openfeign:
